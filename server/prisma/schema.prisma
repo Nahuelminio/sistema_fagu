@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum MovementType {
+  INGRESO
+  SALIDA
+  AJUSTE
+}
+
+model User {
+  id        Int             @id @default(autoincrement())
+  email     String          @unique
+  name      String
+  password  String
+  role      Role            @default(USER)
+  active    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  movements StockMovement[]
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+model Product {
+  id               Int             @id @default(autoincrement())
+  name             String
+  categoryId       Int
+  category         Category        @relation(fields: [categoryId], references: [id])
+  unit             String
+  currentStock     Decimal         @default(0) @db.Decimal(10, 3)
+  minStock         Decimal         @default(0) @db.Decimal(10, 3)
+  costPrice        Decimal?        @db.Decimal(10, 2)
+  salePrice        Decimal?        @db.Decimal(10, 2)
+  visibleInCatalog Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  movements        StockMovement[]
+}
+
+model StockMovement {
+  id        Int          @id @default(autoincrement())
+  productId Int
+  product   Product      @relation(fields: [productId], references: [id])
+  userId    Int
+  user      User         @relation(fields: [userId], references: [id])
+  type      MovementType
+  quantity  Decimal      @db.Decimal(10, 3)
+  unitCost  Decimal?     @db.Decimal(10, 2)
+  notes     String?
+  createdAt DateTime     @default(now())
+}
