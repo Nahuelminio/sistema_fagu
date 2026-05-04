@@ -19,13 +19,13 @@ app.use(cors({ origin: isProd ? '*' : (process.env.CLIENT_URL ?? '*') }))
 app.use(express.json())
 
 // API routes
-app.use('/auth', authRoutes)
-app.use('/products', productRoutes)
-app.use('/movements', movementRoutes)
-app.use('/catalogo', catalogRoutes)
-app.use('/dashboard', dashboardRoutes)
-app.use('/users', userRoutes)
-app.use('/categories', categoryRoutes)
+app.use('/api/auth', authRoutes)
+app.use('/api/products', productRoutes)
+app.use('/api/movements', movementRoutes)
+app.use('/api/catalogo', catalogRoutes)
+app.use('/api/dashboard', dashboardRoutes)
+app.use('/api/users', userRoutes)
+app.use('/api/categories', categoryRoutes)
 
 app.use(errorHandler)
 
