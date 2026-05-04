@@ -81,12 +81,29 @@ export async function update(req: AuthRequest, res: Response): Promise<void> {
 
 export async function remove(req: AuthRequest, res: Response): Promise<void> {
   const id = parseInt(req.params.id)
-  try {
-    await prisma.product.delete({ where: { id } })
-    res.status(204).send()
-  } catch {
-    res.status(404).json({ error: 'Producto no encontrado' })
+
+  // Verificar si tiene historial de movimientos o ventas (no se puede eliminar)
+  const [movements, saleItems] = await Promise.all([
+    prisma.stockMovement.count({ where: { productId: id } }),
+    prisma.saleItem.count({ where: { productId: id } }),
+  ])
+
+  if (movements > 0 || saleItems > 0) {
+    res.status(409).json({
+      error: `No se puede eliminar: tiene ${movements} movimiento(s) y ${saleItems} venta(s) registrada(s). Usá "Fusionar" para unirlo con otro producto.`,
+      canMerge: true,
+    })
+    return
   }
+
+  // Sin historial: eliminar referencias huérfanas y luego el producto
+  await prisma.$transaction(async (tx) => {
+    await tx.tragoBotella.deleteMany({ where: { productId: id } })
+    await tx.botellaActiva.deleteMany({ where: { productId: id } })
+    await tx.product.delete({ where: { id } })
+  })
+
+  res.status(204).send()
 }
 
 // Fusiona removeId en keepId: reasigna todas las FK y suma el stock
