@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../../lib/api'
-import { DashboardData } from '../../types'
+import { DashboardData, BotellaActiva } from '../../types'
 import Badge from '../../components/ui/Badge'
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
@@ -19,9 +20,11 @@ function formatARS(n: number) {
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
+  const [botellas, setBotellas] = useState<BotellaActiva[]>([])
 
   useEffect(() => {
     api.get<DashboardData>('/dashboard').then((r) => setData(r.data))
+    api.get<BotellaActiva[]>('/botellas').then((r) => setBotellas(r.data)).catch(() => {})
   }, [])
 
   if (!data) return <p className="text-center text-zinc-500">Cargando...</p>
@@ -43,6 +46,38 @@ export default function Dashboard() {
           {formatARS(data.month.ganancia)}
         </p>
       </div>
+
+      {/* Botellas por reponer */}
+      {botellas.filter(b => Number(b.restante) <= Number(b.alertaOz)).length > 0 && (
+        <div className="flex flex-col gap-3">
+          <h2 className="flex items-center gap-2 font-semibold text-zinc-300">
+            <span>🫙</span> Botellas por reponer
+          </h2>
+          {botellas
+            .filter(b => Number(b.restante) <= Number(b.alertaOz))
+            .map(b => {
+              const pct = Number(b.capacidad) > 0
+                ? Math.round((Number(b.restante) / Number(b.capacidad)) * 100)
+                : 0
+              return (
+                <Link
+                  key={b.id}
+                  to="/botellas"
+                  className="flex items-center justify-between rounded-xl border border-red-900/40 bg-red-950/30 px-4 py-3"
+                >
+                  <div>
+                    <p className="font-medium text-zinc-100">{b.product.name}</p>
+                    <p className="text-xs text-zinc-500">{b.product.unit}</p>
+                  </div>
+                  <div className="text-right">
+                    <Badge label={`${Number(b.restante).toFixed(1)} oz`} color="red" />
+                    <p className="mt-0.5 text-xs text-zinc-600">{pct}% restante</p>
+                  </div>
+                </Link>
+              )
+            })}
+        </div>
+      )}
 
       {data.lowStockProducts.length > 0 && (
         <div className="flex flex-col gap-3">

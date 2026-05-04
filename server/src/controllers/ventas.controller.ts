@@ -201,7 +201,32 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
         }
       }
 
-      await Promise.all([...productOps, ...movimientoOps, ...ingredienteOps])
+      // Decrementar botellas activas para ingredientes de tragos
+      const botellaOps = []
+      for (const [productId, cantTotal] of stockRequerido.entries()) {
+        // Solo para ingredientes que vienen de tragos (no productos directos)
+        const esIngrediente = tragoItems.some((ti) => {
+          const t = tragos.find((t) => t.id === ti.tragoId)!
+          return t.ingredientes.some((i) => i.productId === productId)
+        })
+        if (!esIngrediente) continue
+
+        botellaOps.push(
+          tx.botellaActiva.updateMany({
+            where: { productId, restante: { gt: 0 } },
+            data: { restante: { decrement: cantTotal } },
+          })
+        )
+      }
+
+      await Promise.all([...productOps, ...movimientoOps, ...ingredienteOps, ...botellaOps])
+
+      // Normalizar restante a 0 si quedó negativo (borde: vendieron más de lo que tenía la botella)
+      await tx.botellaActiva.updateMany({
+        where: { restante: { lt: 0 } },
+        data:  { restante: 0 },
+      })
+
       return newSale
     },
     { timeout: 20000 }

@@ -134,3 +134,14 @@ export interface VentasResponse {
   pages: number
   totalRevenue: number
 }
+
+export interface BotellaActiva {
+  id: number
+  productId: number
+  capacidad: string
+  restante: string
+  alertaOz: string
+  abiertaEn: string
+  updatedAt: string
+  product: { id: number; name: string; unit: string }
+}

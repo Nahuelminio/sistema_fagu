@@ -58,9 +58,10 @@ model Product {
   visibleInCatalog Boolean         @default(false)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
-  movements        StockMovement[]
-  saleItems        SaleItem[]
+  movements         StockMovement[]
+  saleItems         SaleItem[]
   tragoIngredientes TragoBotella[]
+  botellaActiva     BotellaActiva?
 }
 
 model StockMovement {
@@ -108,6 +109,17 @@ model Trago {
   createdAt    DateTime       @default(now())
   ingredientes TragoBotella[]
   saleItems    SaleItem[]
+}
+
+model BotellaActiva {
+  id         Int      @id @default(autoincrement())
+  productId  Int      @unique
+  product    Product  @relation(fields: [productId], references: [id])
+  capacidad  Decimal  @db.Decimal(10, 3)
+  restante   Decimal  @db.Decimal(10, 3)
+  alertaOz   Decimal  @db.Decimal(10, 3) @default(3)
+  abiertaEn  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model TragoBotella {

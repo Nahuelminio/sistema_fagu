@@ -6,6 +6,7 @@ const adminLinks = [
   { to: '/venta',       label: 'Nueva venta', icon: '🛒' },
   { to: '/ventas',      label: 'Ventas',      icon: '💰' },
   { to: '/tragos',      label: 'Tragos',      icon: '🍹' },
+  { to: '/botellas',    label: 'Botellas',    icon: '🫙' },
   { to: '/productos',   label: 'Productos',   icon: '📦' },
   { to: '/movimientos', label: 'Movimientos', icon: '🔄' },
   { to: '/usuarios',    label: 'Usuarios',    icon: '👥' },

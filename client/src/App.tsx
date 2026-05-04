@@ -12,6 +12,7 @@ import Movements from './pages/admin/Movements'
 import Users from './pages/admin/Users'
 import Ventas from './pages/admin/Ventas'
 import Tragos from './pages/admin/Tragos'
+import Botellas from './pages/admin/Botellas'
 
 import StockView from './pages/user/StockView'
 import RegisterSalida from './pages/user/RegisterSalida'
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/ventas" element={<Ventas />} />
             <Route path="/venta" element={<RegisterVenta />} />
             <Route path="/tragos" element={<Tragos />} />
+            <Route path="/botellas" element={<Botellas />} />
             <Route path="/usuarios" element={<Users />} />
           </Route>
 
