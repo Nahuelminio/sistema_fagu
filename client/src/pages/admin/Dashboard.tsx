@@ -1,103 +1,203 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../../lib/api'
-import { DashboardData, BotellaActiva } from '../../types'
-import Badge from '../../components/ui/Badge'
+import { BotellaActiva } from '../../types'
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+interface WeekDay { date: string; revenue: number; count: number }
+interface TopItem  { nombre: string; qty: number; revenue: number }
+interface PayMethod { method: string; count: number; total: number }
+
+interface DashData {
+  totalProducts: number
+  lowStockProducts: Array<{ id: number; name: string; unit: string; currentStock: string; minStock: string; category: { name: string } }>
+  today: { count: number; revenue: number }
+  month: { costoCompras: number; ventas: number; ganancia: number }
+  weekSales: WeekDay[]
+  topItems: TopItem[]
+  paymentBreakdown: PayMethod[]
+}
+
+const ARS = (n: number) =>
+  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+
+const DAY_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+
+const PAYMENT_LABELS: Record<string, string> = {
+  EFECTIVO: 'Efectivo', DEBITO: 'Débito', CREDITO: 'Crédito',
+  TRANSFERENCIA: 'Transferencia', MERCADOPAGO: 'MercadoPago', CUENTA_CORRIENTE: 'Cta. cte.',
+}
+
+function MiniBar({ value, max, color = 'bg-brand-500' }: { value: number; max: number; color?: string }) {
+  const pct = max > 0 ? Math.max(2, (value / max) * 100) : 2
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-      <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-zinc-100">{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-zinc-500">{sub}</p>}
+    <div className="flex h-full w-full items-end">
+      <div className={`w-full rounded-t ${color} transition-all duration-500`} style={{ height: `${pct}%` }} />
     </div>
   )
 }
 
-function formatARS(n: number) {
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
-}
-
 export default function Dashboard() {
-  const [data, setData] = useState<DashboardData | null>(null)
+  const [data, setData]       = useState<DashData | null>(null)
   const [botellas, setBotellas] = useState<BotellaActiva[]>([])
 
   useEffect(() => {
-    api.get<DashboardData>('/dashboard').then((r) => setData(r.data))
+    api.get<DashData>('/dashboard').then((r) => setData(r.data))
     api.get<BotellaActiva[]>('/botellas').then((r) => setBotellas(r.data)).catch(() => {})
   }, [])
 
-  if (!data) return <p className="text-center text-zinc-500">Cargando...</p>
+  if (!data) return (
+    <div className="flex h-48 items-center justify-center text-zinc-500">Cargando...</div>
+  )
+
+  const maxWeekRevenue = Math.max(...data.weekSales.map((d) => d.revenue), 1)
+  const lowBotellas    = botellas.filter(b => Number(b.restante) <= Number(b.alertaOz))
+  const totalPayment   = data.paymentBreakdown.reduce((s, p) => s + p.total, 0)
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-bold text-zinc-100">Dashboard</h1>
+    <div className="flex flex-col gap-5">
 
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Productos" value={data.totalProducts} />
-        <StatCard label="Ventas hoy" value={data.todayVentas} />
-        <StatCard label="Compras del mes" value={formatARS(data.month.costoCompras)} />
-        <StatCard label="Ventas del mes" value={formatARS(data.month.ventas)} />
-      </div>
-
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+      {/* ── Ganancia del mes ─────────────────────────────────────────────── */}
+      <div className={`rounded-2xl p-5 ${data.month.ganancia >= 0 ? 'bg-gradient-to-br from-green-950 to-zinc-900 border border-green-900/40' : 'bg-gradient-to-br from-red-950 to-zinc-900 border border-red-900/40'}`}>
         <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Ganancia del mes</p>
-        <p className={`mt-1 text-3xl font-bold ${data.month.ganancia >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-          {formatARS(data.month.ganancia)}
+        <p className={`mt-1 text-4xl font-black tracking-tight ${data.month.ganancia >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+          {ARS(data.month.ganancia)}
         </p>
+        <div className="mt-3 flex gap-4 text-xs text-zinc-500">
+          <span>↑ Ventas <span className="text-zinc-300 font-medium">{ARS(data.month.ventas)}</span></span>
+          <span>↓ Compras <span className="text-zinc-300 font-medium">{ARS(data.month.costoCompras)}</span></span>
+        </div>
       </div>
 
-      {/* Botellas por reponer */}
-      {botellas.filter(b => Number(b.restante) <= Number(b.alertaOz)).length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h2 className="flex items-center gap-2 font-semibold text-zinc-300">
-            <span>🫙</span> Botellas por reponer
-          </h2>
-          {botellas
-            .filter(b => Number(b.restante) <= Number(b.alertaOz))
-            .map(b => {
-              const pct = Number(b.capacidad) > 0
-                ? Math.round((Number(b.restante) / Number(b.capacidad)) * 100)
-                : 0
+      {/* ── Stats row ────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Hoy</p>
+          <p className="mt-1 text-2xl font-bold text-zinc-100">{data.today.count}</p>
+          <p className="text-xs text-zinc-500">{ARS(data.today.revenue)}</p>
+        </div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Ventas mes</p>
+          <p className="mt-1 text-2xl font-bold text-zinc-100">{ARS(data.month.ventas)}</p>
+          <p className="text-xs text-zinc-500">{data.lowStockProducts.length > 0 ? `${data.lowStockProducts.length} bajo stock` : 'stock OK'}</p>
+        </div>
+      </div>
+
+      {/* ── Gráfico semanal ───────────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Últimos 7 días</p>
+        <div className="flex h-24 items-end gap-1.5">
+          {data.weekSales.map((d) => {
+            const label = DAY_LABELS[new Date(d.date + 'T12:00:00').getDay()]
+            const isToday = d.date === new Date().toISOString().slice(0, 10)
+            return (
+              <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
+                <div className="w-full flex-1">
+                  <MiniBar
+                    value={d.revenue}
+                    max={maxWeekRevenue}
+                    color={isToday ? 'bg-brand-500' : 'bg-zinc-700'}
+                  />
+                </div>
+                <span className={`text-[10px] ${isToday ? 'text-brand-400 font-bold' : 'text-zinc-600'}`}>
+                  {label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        <div className="mt-2 flex justify-between text-[10px] text-zinc-600">
+          <span>{ARS(0)}</span>
+          <span>{ARS(maxWeekRevenue)}</span>
+        </div>
+      </div>
+
+      {/* ── Top productos ─────────────────────────────────────────────────── */}
+      {data.topItems.length > 0 && (
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Más vendido este mes</p>
+          <div className="flex flex-col gap-2">
+            {data.topItems.map((item, i) => {
+              const maxQty = data.topItems[0].qty
+              const pct = Math.max(4, (item.qty / maxQty) * 100)
               return (
-                <Link
-                  key={b.id}
-                  to="/botellas"
-                  className="flex items-center justify-between rounded-xl border border-red-900/40 bg-red-950/30 px-4 py-3"
-                >
-                  <div>
-                    <p className="font-medium text-zinc-100">{b.product.name}</p>
-                    <p className="text-xs text-zinc-500">{b.product.unit}</p>
+                <div key={item.nombre} className="flex items-center gap-3">
+                  <span className="w-4 text-xs text-zinc-600 shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-sm text-zinc-200 truncate">{item.nombre}</span>
+                      <span className="text-xs text-zinc-500 shrink-0 ml-2">{item.qty} u.</span>
+                    </div>
+                    <div className="h-1 rounded-full bg-zinc-800">
+                      <div
+                        className="h-full rounded-full bg-brand-500/60 transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <Badge label={`${Number(b.restante).toFixed(1)} oz`} color="red" />
-                    <p className="mt-0.5 text-xs text-zinc-600">{pct}% restante</p>
-                  </div>
-                </Link>
+                  <span className="text-xs text-zinc-500 shrink-0 w-20 text-right">{ARS(item.revenue)}</span>
+                </div>
               )
             })}
+          </div>
         </div>
       )}
 
-      {data.lowStockProducts.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h2 className="flex items-center gap-2 font-semibold text-zinc-300">
-            <span>⚠️</span> Bajo stock mínimo
-          </h2>
-          {data.lowStockProducts.map((p) => (
-            <div key={p.id} className="flex items-center justify-between rounded-xl border border-red-900/40 bg-red-950/30 px-4 py-3">
+      {/* ── Métodos de pago ───────────────────────────────────────────────── */}
+      {data.paymentBreakdown.length > 0 && (
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Cobros del mes</p>
+          <div className="flex flex-col gap-2">
+            {data.paymentBreakdown
+              .sort((a, b) => b.total - a.total)
+              .map((p) => {
+                const pct = totalPayment > 0 ? (p.total / totalPayment) * 100 : 0
+                return (
+                  <div key={p.method} className="flex items-center gap-3">
+                    <span className="w-24 shrink-0 text-xs text-zinc-400">{PAYMENT_LABELS[p.method] ?? p.method}</span>
+                    <div className="flex-1 h-2 rounded-full bg-zinc-800 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-zinc-500 transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-zinc-400 w-20 text-right shrink-0">{ARS(p.total)}</span>
+                    <span className="text-xs text-zinc-600 w-6 text-right shrink-0">{p.count}</span>
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Alertas ───────────────────────────────────────────────────────── */}
+      {(lowBotellas.length > 0 || data.lowStockProducts.length > 0) && (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Alertas</p>
+
+          {lowBotellas.map(b => (
+            <Link key={b.id} to="/botellas"
+              className="flex items-center justify-between rounded-xl border border-red-900/40 bg-red-950/20 px-4 py-3">
               <div>
-                <p className="font-medium text-zinc-100">{p.name}</p>
-                <p className="text-xs text-zinc-500">{p.category.name}</p>
+                <p className="text-sm font-medium text-zinc-100">🫙 {b.product.name}</p>
+                <p className="text-xs text-zinc-500">Botella por reponer</p>
               </div>
-              <div className="text-right">
-                <Badge label={`${p.currentStock} ${p.unit}`} color="red" />
-                <p className="mt-0.5 text-xs text-zinc-600">mín: {p.minStock}</p>
+              <span className="text-sm font-bold text-red-400">{Number(b.restante).toFixed(1)} oz</span>
+            </Link>
+          ))}
+
+          {data.lowStockProducts.map(p => (
+            <Link key={p.id} to="/productos"
+              className="flex items-center justify-between rounded-xl border border-orange-900/40 bg-orange-950/20 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-zinc-100">📦 {p.name}</p>
+                <p className="text-xs text-zinc-500">{p.category.name} · mín {p.minStock}</p>
               </div>
-            </div>
+              <span className="text-sm font-bold text-orange-400">{p.currentStock} {p.unit}</span>
+            </Link>
           ))}
         </div>
       )}
+
     </div>
   )
 }

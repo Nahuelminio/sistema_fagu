@@ -43,19 +43,15 @@ export interface StockMovement {
 export interface DashboardData {
   totalProducts: number
   lowStockProducts: Array<{
-    id: number
-    name: string
-    unit: string
-    currentStock: string
-    minStock: string
+    id: number; name: string; unit: string
+    currentStock: string; minStock: string
     category: { name: string }
   }>
-  todayVentas: number
-  month: {
-    costoCompras: number
-    ventas: number
-    ganancia: number
-  }
+  today: { count: number; revenue: number }
+  month: { costoCompras: number; ventas: number; ganancia: number }
+  weekSales: Array<{ date: string; revenue: number; count: number }>
+  topItems: Array<{ nombre: string; qty: number; revenue: number }>
+  paymentBreakdown: Array<{ method: string; count: number; total: number }>
 }
 
 export interface CatalogProduct {
