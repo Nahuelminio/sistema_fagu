@@ -59,9 +59,14 @@ export default function Dashboard() {
     <div className="flex h-48 items-center justify-center text-zinc-500">Cargando...</div>
   )
 
-  const maxWeekRevenue = Math.max(...data.weekSales.map((d) => d.revenue), 1)
+  const weekSales        = data.weekSales        ?? []
+  const topItems         = data.topItems         ?? []
+  const paymentBreakdown = data.paymentBreakdown ?? []
+  const todayData        = data.today            ?? { count: (data as any).todayVentas ?? 0, revenue: 0 }
+
+  const maxWeekRevenue = Math.max(...weekSales.map((d) => d.revenue), 1)
   const lowBotellas    = botellas.filter(b => Number(b.restante) <= Number(b.alertaOz))
-  const totalPayment   = data.paymentBreakdown.reduce((s, p) => s + p.total, 0)
+  const totalPayment   = paymentBreakdown.reduce((s, p) => s + p.total, 0)
 
   return (
     <div className="flex flex-col gap-5">
@@ -82,8 +87,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Hoy</p>
-          <p className="mt-1 text-2xl font-bold text-zinc-100">{data.today.count}</p>
-          <p className="text-xs text-zinc-500">{ARS(data.today.revenue)}</p>
+          <p className="mt-1 text-2xl font-bold text-zinc-100">{todayData.count}</p>
+          <p className="text-xs text-zinc-500">{ARS(todayData.revenue)}</p>
         </div>
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Ventas mes</p>
@@ -96,7 +101,7 @@ export default function Dashboard() {
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Últimos 7 días</p>
         <div className="flex h-24 items-end gap-1.5">
-          {data.weekSales.map((d) => {
+          {weekSales.map((d) => {
             const label = DAY_LABELS[new Date(d.date + 'T12:00:00').getDay()]
             const isToday = d.date === new Date().toISOString().slice(0, 10)
             return (
@@ -122,12 +127,12 @@ export default function Dashboard() {
       </div>
 
       {/* ── Top productos ─────────────────────────────────────────────────── */}
-      {data.topItems.length > 0 && (
+      {topItems.length > 0 && (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Más vendido este mes</p>
           <div className="flex flex-col gap-2">
-            {data.topItems.map((item, i) => {
-              const maxQty = data.topItems[0].qty
+            {topItems.map((item, i) => {
+              const maxQty = topItems[0].qty
               const pct = Math.max(4, (item.qty / maxQty) * 100)
               return (
                 <div key={item.nombre} className="flex items-center gap-3">
@@ -153,11 +158,11 @@ export default function Dashboard() {
       )}
 
       {/* ── Métodos de pago ───────────────────────────────────────────────── */}
-      {data.paymentBreakdown.length > 0 && (
+      {paymentBreakdown.length > 0 && (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Cobros del mes</p>
           <div className="flex flex-col gap-2">
-            {data.paymentBreakdown
+            {paymentBreakdown
               .sort((a, b) => b.total - a.total)
               .map((p) => {
                 const pct = totalPayment > 0 ? (p.total / totalPayment) * 100 : 0
