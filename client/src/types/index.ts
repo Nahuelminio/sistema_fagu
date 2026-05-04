@@ -79,7 +79,10 @@ export interface TragoBotella {
   id: number
   productId: number
   cantidad: string
-  product: { id: number; name: string; unit: string; currentStock: string; costPrice: string | null }
+  product: {
+    id: number; name: string; unit: string; currentStock: string; costPrice: string | null
+    botellaActiva: { capacidad: string } | null
+  }
 }
 
 export interface Trago {

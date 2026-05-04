@@ -18,7 +18,12 @@ const tragoSchema = z.object({
 const tragoInclude = {
   ingredientes: {
     include: {
-      product: { select: { id: true, name: true, unit: true, currentStock: true, costPrice: true } },
+      product: {
+        select: {
+          id: true, name: true, unit: true, currentStock: true, costPrice: true,
+          botellaActiva: { select: { capacidad: true } },
+        },
+      },
     },
   },
 }
