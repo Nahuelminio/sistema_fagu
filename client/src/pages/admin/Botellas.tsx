@@ -10,41 +10,83 @@ const PRESETS = [
   { label: 'Personalizado', value: 0 },
 ]
 
-function FillMeter({ restante, capacidad, alertaOz }: { restante: number; capacidad: number; alertaOz: number }) {
-  const pct = capacidad > 0 ? Math.max(0, Math.min(100, (restante / capacidad) * 100)) : 0
+function BottleSvg({ restante, capacidad, alertaOz, uid }: {
+  restante: number; capacidad: number; alertaOz: number; uid: string
+}) {
+  const pct   = capacidad > 0 ? Math.max(0, Math.min(1, restante / capacidad)) : 0
   const isAlert = restante <= alertaOz
-  const isLow = pct <= 30
+  const isLow   = pct <= 0.3
 
-  const color = isAlert
-    ? 'bg-red-500'
-    : isLow
-    ? 'bg-yellow-500'
-    : 'bg-green-500'
+  const fillColor = isAlert ? '#ef4444' : isLow ? '#eab308' : '#22c55e'
+  const glowColor = isAlert ? '#ef444440' : isLow ? '#eab30840' : '#22c55e40'
+
+  // Bottle geometry (viewBox 0 0 44 100)
+  // Body: y=36..88, neck: y=6..28, shoulder: y=28..36, cap: y=0..6
+  const bodyBottom = 88
+  const neckTop    = 6
+  // Total fillable height = neckTop to bodyBottom
+  const totalH = bodyBottom - neckTop          // 82
+  const fillH  = pct * totalH                  // how many units to fill
+  const fillY  = bodyBottom - fillH            // top of the fill rect
+
+  const bottlePath =
+    'M 17,6 L 27,6 L 27,26 C 32,30 37,33 38,36 L 38,84 Q 38,91 22,91 Q 6,91 6,84 L 6,36 C 7,33 12,30 17,26 Z'
 
   return (
-    <div className="flex items-center gap-3">
-      {/* Botella vertical */}
-      <div className="relative flex flex-col items-center">
-        <div className="w-4 h-1 bg-zinc-700 rounded-t-sm mx-auto" />
-        <div className="w-8 h-20 rounded-b-lg border border-zinc-700 bg-zinc-900 overflow-hidden flex flex-col-reverse">
-          <div
-            className={`${color} w-full transition-all duration-500`}
-            style={{ height: `${pct}%` }}
-          />
-        </div>
-      </div>
-      {/* Info */}
-      <div className="flex flex-col gap-0.5">
-        <span className={`text-sm font-bold ${isAlert ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-green-400'}`}>
-          {restante.toFixed(1)} oz
-        </span>
-        <span className="text-xs text-zinc-500">de {capacidad.toFixed(1)} oz</span>
-        <span className="text-xs text-zinc-600">{pct.toFixed(0)}%</span>
-        {isAlert && (
-          <span className="text-xs font-semibold text-red-400 animate-pulse">⚠ Reponer</span>
-        )}
-      </div>
-    </div>
+    <svg viewBox="0 0 44 100" width="44" height="100" style={{ overflow: 'visible' }}>
+      <defs>
+        <clipPath id={`bc-${uid}`}>
+          <path d={bottlePath} />
+        </clipPath>
+        <linearGradient id={`shine-${uid}`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"   stopColor="white" stopOpacity="0" />
+          <stop offset="60%"  stopColor="white" stopOpacity="0.06" />
+          <stop offset="100%" stopColor="white" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {/* Bottle body background */}
+      <path d={bottlePath} fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
+
+      {/* Liquid fill */}
+      <rect
+        x="0" y={fillY} width="44" height={fillH}
+        clipPath={`url(#bc-${uid})`}
+        fill={fillColor}
+        opacity="0.75"
+        style={{ transition: 'y 0.6s ease, height 0.6s ease' }}
+      />
+
+      {/* Liquid top bubble / meniscus */}
+      {pct > 0 && pct < 1 && (
+        <ellipse
+          cx="22" cy={fillY} rx="10" ry="2"
+          clipPath={`url(#bc-${uid})`}
+          fill={fillColor}
+          opacity="0.5"
+        />
+      )}
+
+      {/* Shine overlay */}
+      <path d={bottlePath} fill={`url(#shine-${uid})`} />
+
+      {/* Bottle outline on top */}
+      <path d={bottlePath} fill="none" stroke="#52525b" strokeWidth="1.5" />
+
+      {/* Glow ring when alerting */}
+      {isAlert && (
+        <path d={bottlePath} fill="none" stroke={glowColor} strokeWidth="4" opacity="0.6" />
+      )}
+
+      {/* Cap */}
+      <rect x="15" y="0" width="14" height="7" rx="2.5"
+            fill="#27272a" stroke="#52525b" strokeWidth="1.2" />
+
+      {/* Cap thread lines */}
+      <line x1="18" y1="2" x2="18" y2="6" stroke="#3f3f46" strokeWidth="0.8" />
+      <line x1="22" y1="2" x2="22" y2="6" stroke="#3f3f46" strokeWidth="0.8" />
+      <line x1="26" y1="2" x2="26" y2="6" stroke="#3f3f46" strokeWidth="0.8" />
+    </svg>
   )
 }
 
@@ -238,15 +280,23 @@ export default function Botellas() {
                     : 'border-zinc-800 bg-zinc-900'
                 }`}
               >
-                <FillMeter restante={restante} capacidad={capacidad} alertaOz={alertaOz} />
+                <BottleSvg
+                  restante={restante}
+                  capacidad={capacidad}
+                  alertaOz={alertaOz}
+                  uid={String(b.id)}
+                />
 
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-zinc-100 truncate">{b.product.name}</p>
-                  <p className="text-xs text-zinc-500">{b.product.unit}</p>
+                  <p className={`text-sm font-bold mt-0.5 ${isAlert ? 'text-red-400' : pct <= 30 ? 'text-yellow-400' : 'text-green-400'}`}>
+                    {restante.toFixed(1)} oz
+                    <span className="text-xs font-normal text-zinc-500 ml-1">/ {capacidad.toFixed(1)} oz</span>
+                  </p>
                   <p className="text-xs text-zinc-600 mt-0.5">
                     Abierta: {new Date(b.abiertaEn).toLocaleDateString('es-AR')}
                   </p>
-                  <div className="mt-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden w-full">
+                  <div className="mt-2 h-1.5 rounded-full bg-zinc-800 overflow-hidden w-full">
                     <div
                       className={`h-full rounded-full transition-all ${
                         isAlert ? 'bg-red-500' : pct <= 30 ? 'bg-yellow-500' : 'bg-green-500'
@@ -254,6 +304,9 @@ export default function Botellas() {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
+                  {isAlert && (
+                    <p className="mt-1 text-xs font-semibold text-red-400 animate-pulse">⚠ Reponer</p>
+                  )}
                 </div>
 
                 <button
