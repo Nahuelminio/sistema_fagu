@@ -24,15 +24,17 @@ async function main() {
     create: { name: 'Snacks' },
   })
 
-  await prisma.product.createMany({
-    skipDuplicates: true,
-    data: [
-      { name: 'Cerveza Lager', categoryId: bebidas.id, unit: 'unidades', minStock: 24, currentStock: 48, costPrice: 350, salePrice: 600, visibleInCatalog: true },
-      { name: 'Coca Cola 500ml', categoryId: bebidas.id, unit: 'unidades', minStock: 12, currentStock: 30, costPrice: 280, salePrice: 500, visibleInCatalog: true },
-      { name: 'Agua Mineral', categoryId: bebidas.id, unit: 'unidades', minStock: 12, currentStock: 20, costPrice: 150, salePrice: 300, visibleInCatalog: true },
-      { name: 'Maní', categoryId: snacks.id, unit: 'porciones', minStock: 10, currentStock: 15, costPrice: 100, salePrice: 200, visibleInCatalog: true },
-    ],
-  })
+  // Usar findFirst + create para evitar duplicados (name no tiene @unique en el schema)
+  const seedProducts = [
+    { name: 'Cerveza Lager',  categoryId: bebidas.id, unit: 'unidades',  minStock: 24, currentStock: 48, costPrice: 350, salePrice: 600, visibleInCatalog: true },
+    { name: 'Coca Cola 500ml', categoryId: bebidas.id, unit: 'unidades', minStock: 12, currentStock: 30, costPrice: 280, salePrice: 500, visibleInCatalog: true },
+    { name: 'Agua Mineral',   categoryId: bebidas.id, unit: 'unidades',  minStock: 12, currentStock: 20, costPrice: 150, salePrice: 300, visibleInCatalog: true },
+    { name: 'Maní',           categoryId: snacks.id,  unit: 'porciones', minStock: 10, currentStock: 15, costPrice: 100, salePrice: 200, visibleInCatalog: true },
+  ]
+  for (const p of seedProducts) {
+    const exists = await prisma.product.findFirst({ where: { name: p.name } })
+    if (!exists) await prisma.product.create({ data: p })
+  }
 
   console.log('Seed completado. Admin:', admin.email, '/ Contraseña: admin123')
 }
