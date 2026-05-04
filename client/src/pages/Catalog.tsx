@@ -17,9 +17,11 @@ export default function Catalog() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Hero */}
       <div className="px-4 py-14 text-center">
-        <div className="mb-3 text-5xl font-black tracking-widest text-zinc-100">
-          <span className="text-brand-500">⚡</span> FAGU
-        </div>
+        <img
+          src="/logo.png"
+          alt="FAGU Drink Bar"
+          className="mx-auto mb-4 h-24 w-24 rounded-2xl object-cover"
+        />
         <p className="text-xs font-semibold uppercase tracking-[0.4em] text-zinc-500">Drink Bar</p>
         <p className="mt-4 text-sm text-zinc-400">Carta disponible ahora</p>
         <div className="mx-auto mt-4 h-px w-16 bg-brand-600" />

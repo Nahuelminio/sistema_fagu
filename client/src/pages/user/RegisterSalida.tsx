@@ -3,16 +3,17 @@ import api from '../../lib/api'
 import { Product } from '../../types'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import { useToast } from '../../context/ToastContext'
 
 const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
 
 export default function RegisterSalida() {
+  const { showToast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
   const [productId, setProductId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -24,7 +25,6 @@ export default function RegisterSalida() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
-    setSuccess('')
     setSaving(true)
     try {
       await api.post('/movements/salida', {
@@ -32,7 +32,7 @@ export default function RegisterSalida() {
         quantity: parseFloat(quantity),
         notes: notes || undefined,
       })
-      setSuccess(`Salida de ${quantity} ${selected?.unit} registrada`)
+      showToast(`Salida de ${quantity} ${selected?.unit ?? ''} registrada`)
       setQuantity('')
       setNotes('')
       api.get<Product[]>('/products').then((r) => setProducts(r.data))
@@ -66,7 +66,6 @@ export default function RegisterSalida() {
           <Input label="Notas (opcional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
 
           {error && <p className="rounded-lg border border-red-800/50 bg-red-900/30 px-3 py-2 text-sm text-red-400">{error}</p>}
-          {success && <p className="rounded-lg border border-green-800/50 bg-green-900/30 px-3 py-2 text-sm text-green-400">✓ {success}</p>}
 
           <Button type="submit" loading={saving} className="w-full">Registrar salida</Button>
         </div>

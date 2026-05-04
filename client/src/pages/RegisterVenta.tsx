@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../lib/api'
 import { Product, Trago, PaymentMethod, PAYMENT_LABELS } from '../types'
 import Button from '../components/ui/Button'
+import { useToast } from '../context/ToastContext'
 
 // ── Tipos del carrito ──────────────────────────────────────────────────────
 interface CartItem {
@@ -20,6 +21,7 @@ function formatARS(n: number) {
 const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
 
 export default function RegisterVenta() {
+  const { showToast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
   const [tragos, setTragos]     = useState<Trago[]>([])
   const [cart, setCart]         = useState<CartItem[]>([])
@@ -27,9 +29,9 @@ export default function RegisterVenta() {
   const [selectedId, setSelectedId] = useState('')
   const [quantity, setQuantity]     = useState('1')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('EFECTIVO')
+  const [discount, setDiscount] = useState('')
   const [notes, setNotes]   = useState('')
   const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState('')
   const [error, setError]   = useState('')
 
   useEffect(() => {
@@ -76,12 +78,13 @@ export default function RegisterVenta() {
     setCart((prev) => prev.map((i) => i.type === type && i.id === id ? { ...i, quantity: qty } : i))
   }
 
-  const total = cart.reduce((sum, i) => sum + i.salePrice * i.quantity, 0)
+  const subtotal = cart.reduce((sum, i) => sum + i.salePrice * i.quantity, 0)
+  const discountAmt = parseFloat(discount) || 0
+  const total = Math.max(0, subtotal - discountAmt)
 
   async function handleSubmit() {
     if (cart.length === 0) return
     setError('')
-    setSuccess('')
     setSaving(true)
     try {
       const items = cart.map((i) =>
@@ -89,10 +92,11 @@ export default function RegisterVenta() {
           ? { productId: i.id, quantity: i.quantity }
           : { tragoId: i.id, quantity: i.quantity }
       )
-      const res = await api.post('/ventas', { items, paymentMethod, notes: notes || undefined })
-      setSuccess(`Venta #${res.data.id} registrada — ${formatARS(Number(res.data.total))}`)
+      const res = await api.post('/ventas', { items, paymentMethod, discount: discountAmt, notes: notes || undefined })
+      showToast(`Venta #${res.data.id} registrada — ${formatARS(Number(res.data.total))}`)
       setCart([])
       setPaymentMethod('EFECTIVO')
+      setDiscount('')
       setNotes('')
       api.get<Product[]>('/products').then((r) => setProducts(r.data))
     } catch (err: unknown) {
@@ -119,7 +123,7 @@ export default function RegisterVenta() {
                 tab === t ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              {t === 'trago' ? '🍹 Tragos' : '📦 Productos'}
+              {t === 'trago' ? 'Tragos' : 'Productos'}
             </button>
           ))}
         </div>
@@ -167,7 +171,7 @@ export default function RegisterVenta() {
               <div key={`${item.type}-${item.id}`} className="flex items-center justify-between py-2.5">
                 <div className="flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm">{item.type === 'trago' ? '🍹' : '📦'}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-600">{item.type === 'trago' ? 'T' : 'P'}</span>
                     <p className="text-sm font-medium text-zinc-100">{item.name}</p>
                   </div>
                   <p className="text-xs text-zinc-500">
@@ -178,16 +182,32 @@ export default function RegisterVenta() {
                   <button onClick={() => updateQty(item.type, item.id, item.quantity - 1)} className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-sm font-bold text-zinc-400 hover:bg-zinc-700">−</button>
                   <span className="w-8 text-center text-sm font-medium text-zinc-100">{item.quantity}</span>
                   <button onClick={() => updateQty(item.type, item.id, item.quantity + 1)} className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-sm font-bold text-zinc-400 hover:bg-zinc-700">+</button>
-                  <button onClick={() => removeFromCart(item.type, item.id)} className="ml-1 text-xs text-zinc-600 hover:text-red-400">✕</button>
+                  <button onClick={() => removeFromCart(item.type, item.id)} className="ml-1 text-xs text-zinc-600 hover:text-red-400">×</button>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Total */}
-          <div className="mt-3 flex items-center justify-between border-t border-zinc-800 pt-3">
-            <span className="text-sm font-semibold text-zinc-400">Total</span>
-            <span className="text-xl font-bold text-brand-400">{formatARS(total)}</span>
+          {/* Descuento + Total */}
+          <div className="mt-3 border-t border-zinc-800 pt-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-zinc-500">Subtotal</span>
+              <span className="text-sm text-zinc-400">{formatARS(subtotal)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-500 shrink-0">Descuento $</span>
+              <input
+                type="number" min="0" step="1"
+                value={discount}
+                onChange={e => setDiscount(e.target.value)}
+                placeholder="0"
+                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none focus:border-brand-500"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-zinc-400">Total</span>
+              <span className="text-xl font-bold text-brand-400">{formatARS(total)}</span>
+            </div>
           </div>
 
           {/* Medio de pago */}
@@ -220,7 +240,6 @@ export default function RegisterVenta() {
           />
 
           {error && <p className="mt-3 rounded-lg border border-red-800/50 bg-red-900/30 px-3 py-2 text-sm text-red-400">{error}</p>}
-          {success && <p className="mt-3 rounded-lg border border-green-800/50 bg-green-900/30 px-3 py-2 text-sm text-green-400">✓ {success}</p>}
 
           <Button type="button" onClick={handleSubmit} loading={saving} className="mt-3 w-full">
             Confirmar venta
@@ -228,7 +247,7 @@ export default function RegisterVenta() {
         </div>
       )}
 
-      {cart.length === 0 && !success && (
+      {cart.length === 0 && (
         <p className="text-center text-sm text-zinc-600">Seleccioná un trago o producto para empezar</p>
       )}
     </div>

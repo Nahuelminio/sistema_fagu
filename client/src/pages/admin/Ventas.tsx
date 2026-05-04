@@ -64,12 +64,40 @@ function VentaCard({ venta }: { venta: Sale }) {
 
 const inputClass = 'rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand-500 w-full'
 
+function exportCSV(ventas: Sale[], fromDate: string, toDate: string) {
+  const rows: string[] = []
+  rows.push(['ID', 'Fecha', 'Usuario', 'Medio de pago', 'Subtotal', 'Descuento', 'Total', 'Items', 'Notas'].join(','))
+  for (const v of ventas) {
+    const items = v.items.map((i) => `${i.nombre || i.product?.name || i.trago?.name} x${i.quantity}`).join(' | ')
+    rows.push([
+      v.id,
+      new Date(v.createdAt).toLocaleString('es-AR'),
+      `"${v.user.name}"`,
+      PAYMENT_LABELS[v.paymentMethod as PaymentMethod],
+      Number(v.subtotal ?? v.total),
+      Number(v.discount ?? 0),
+      Number(v.total),
+      `"${items}"`,
+      `"${v.notes ?? ''}"`,
+    ].join(','))
+  }
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const suffix = fromDate && toDate ? `_${fromDate}_${toDate}` : fromDate ? `_desde_${fromDate}` : toDate ? `_hasta_${toDate}` : ''
+  a.download = `ventas${suffix}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function Ventas() {
   const [data, setData] = useState<VentasResponse | null>(null)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
 
   async function load(p = 1) {
     setLoading(true)
@@ -82,6 +110,19 @@ export default function Ventas() {
       setPage(p)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams({ page: '1', limit: '5000' })
+      if (from) params.set('from', from)
+      if (to) params.set('to', to)
+      const res = await api.get<VentasResponse>(`/ventas?${params}`)
+      exportCSV(res.data.ventas, from, to)
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -104,12 +145,21 @@ export default function Ventas() {
               <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputClass} />
             </div>
           </div>
-          <button
-            onClick={() => load(1)}
-            className="rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-400 transition"
-          >
-            Filtrar
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => load(1)}
+              className="flex-1 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-400 transition"
+            >
+              Filtrar
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-700 transition disabled:opacity-50"
+            >
+              {exporting ? 'Exportando...' : 'Exportar CSV'}
+            </button>
+          </div>
         </div>
       </div>
 

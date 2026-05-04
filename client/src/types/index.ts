@@ -118,6 +118,8 @@ export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
 
 export interface Sale {
   id: number
+  subtotal?: string
+  discount?: string
   total: string
   paymentMethod: PaymentMethod
   notes: string | null

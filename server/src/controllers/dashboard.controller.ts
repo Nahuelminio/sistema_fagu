@@ -58,7 +58,7 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
     // Top productos/tragos del mes (por cantidad vendida)
     prisma.saleItem.findMany({
       where: { sale: { createdAt: { gte: monthStart } } },
-      select: { nombre: true, quantity: true, unitPrice: true },
+      select: { nombre: true, quantity: true, unitPrice: true, productId: true, tragoId: true },
     }),
 
     // Ventas por método de pago del mes
@@ -97,11 +97,24 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
   }
   const weekSales = Object.entries(weekMap).map(([date, v]) => ({ date, ...v }))
 
-  // Top 5 items del mes
+  // Top 5 items del mes — fallback de nombre para SaleItems antiguos (nombre vacío)
+  const dashTragoIds   = [...new Set(topItemsRaw.filter((i) => i.tragoId).map((i) => i.tragoId!))]
+  const dashProductIds = [...new Set(topItemsRaw.filter((i) => i.productId && !i.tragoId).map((i) => i.productId!))]
+  const [dashTragos, dashProducts] = await Promise.all([
+    dashTragoIds.length   ? prisma.trago.findMany({ where: { id: { in: dashTragoIds } }, select: { id: true, name: true } }) : [],
+    dashProductIds.length ? prisma.product.findMany({ where: { id: { in: dashProductIds } }, select: { id: true, name: true } }) : [],
+  ])
+  const dashTragoMap   = new Map(dashTragos.map((t) => [t.id, t.name]))
+  const dashProductMap = new Map(dashProducts.map((p) => [p.id, p.name]))
+
   const itemMap: Record<string, { nombre: string; qty: number; revenue: number }> = {}
   for (const item of topItemsRaw) {
-    const key = item.nombre
-    if (!itemMap[key]) itemMap[key] = { nombre: item.nombre, qty: 0, revenue: 0 }
+    const resolvedNombre = item.nombre ||
+      (item.tragoId   ? (dashTragoMap.get(item.tragoId)   ?? `Trago #${item.tragoId}`)   : '') ||
+      (item.productId ? (dashProductMap.get(item.productId) ?? `Producto #${item.productId}`) : '')
+    if (!resolvedNombre) continue
+    const key = item.tragoId ? `t_${item.tragoId}` : item.productId ? `p_${item.productId}` : resolvedNombre
+    if (!itemMap[key]) itemMap[key] = { nombre: resolvedNombre, qty: 0, revenue: 0 }
     itemMap[key].qty     += Number(item.quantity)
     itemMap[key].revenue += Number(item.quantity) * Number(item.unitPrice)
   }
@@ -128,5 +141,83 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
     weekSales,
     topItems,
     paymentBreakdown,
+  })
+}
+
+export async function getCierreCaja(req: AuthRequest, res: Response): Promise<void> {
+  // Fecha del cierre: hoy por defecto, o ?date=YYYY-MM-DD
+  const dateParam = req.query.date as string | undefined
+  const base = dateParam ? new Date(dateParam) : new Date()
+  const from = new Date(base); from.setHours(0, 0, 0, 0)
+  const to   = new Date(base); to.setHours(23, 59, 59, 999)
+
+  const [ventas, paymentRaw, topItemsRaw] = await Promise.all([
+    prisma.sale.findMany({
+      where: { createdAt: { gte: from, lte: to } },
+      include: {
+        items: { select: { nombre: true, quantity: true, unitPrice: true } },
+        user:  { select: { name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    }),
+
+    prisma.sale.groupBy({
+      by: ['paymentMethod'],
+      where: { createdAt: { gte: from, lte: to } },
+      _count: { id: true },
+      _sum:   { total: true },
+    }),
+
+    prisma.saleItem.findMany({
+      where: { sale: { createdAt: { gte: from, lte: to } } },
+      select: { nombre: true, quantity: true, unitPrice: true, productId: true, tragoId: true },
+    }),
+  ])
+
+  const totalRevenue = ventas.reduce((s, v) => s + Number(v.total), 0)
+
+  const paymentBreakdown = paymentRaw.map((p) => ({
+    method: p.paymentMethod,
+    count:  p._count.id,
+    total:  Number(p._sum.total ?? 0),
+  }))
+
+  // Fallback de nombre para SaleItems antiguos (nombre vacío)
+  const cierreTragoIds   = [...new Set(topItemsRaw.filter((i) => i.tragoId).map((i) => i.tragoId!))]
+  const cierreProductIds = [...new Set(topItemsRaw.filter((i) => i.productId && !i.tragoId).map((i) => i.productId!))]
+  const [cierreTragos, cierreProducts] = await Promise.all([
+    cierreTragoIds.length   ? prisma.trago.findMany({ where: { id: { in: cierreTragoIds } }, select: { id: true, name: true } }) : [],
+    cierreProductIds.length ? prisma.product.findMany({ where: { id: { in: cierreProductIds } }, select: { id: true, name: true } }) : [],
+  ])
+  const cierreTragoMap   = new Map(cierreTragos.map((t) => [t.id, t.name]))
+  const cierreProductMap = new Map(cierreProducts.map((p) => [p.id, p.name]))
+
+  const itemMap: Record<string, { nombre: string; qty: number; revenue: number }> = {}
+  for (const item of topItemsRaw) {
+    const resolvedNombre = item.nombre ||
+      (item.tragoId   ? (cierreTragoMap.get(item.tragoId)   ?? `Trago #${item.tragoId}`)   : '') ||
+      (item.productId ? (cierreProductMap.get(item.productId) ?? `Producto #${item.productId}`) : '')
+    if (!resolvedNombre) continue
+    const key = item.tragoId ? `t_${item.tragoId}` : item.productId ? `p_${item.productId}` : resolvedNombre
+    if (!itemMap[key]) itemMap[key] = { nombre: resolvedNombre, qty: 0, revenue: 0 }
+    itemMap[key].qty     += Number(item.quantity)
+    itemMap[key].revenue += Number(item.quantity) * Number(item.unitPrice)
+  }
+  const topItems = Object.values(itemMap).sort((a, b) => b.qty - a.qty)
+
+  res.json({
+    date: from.toISOString().slice(0, 10),
+    totalVentas: ventas.length,
+    totalRevenue,
+    paymentBreakdown,
+    topItems,
+    ventas: ventas.map((v) => ({
+      id: v.id,
+      createdAt: v.createdAt,
+      total: Number(v.total),
+      paymentMethod: v.paymentMethod,
+      user: v.user.name,
+      items: v.items,
+    })),
   })
 }

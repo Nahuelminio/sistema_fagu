@@ -13,6 +13,8 @@ import categoryRoutes from './routes/categories.routes'
 import ventasRoutes from './routes/ventas.routes'
 import tragosRoutes from './routes/tragos.routes'
 import botellasRoutes from './routes/botellas.routes'
+import mesasRoutes from './routes/mesas.routes'
+import ordenesRoutes from './routes/ordenes.routes'
 import { errorHandler } from './middlewares/error.middleware'
 
 const app = express()
@@ -32,6 +34,8 @@ app.use('/api/categories', categoryRoutes)
 app.use('/api/ventas', ventasRoutes)
 app.use('/api/tragos', tragosRoutes)
 app.use('/api/botellas', botellasRoutes)
+app.use('/api/mesas', mesasRoutes)
+app.use('/api/ordenes', ordenesRoutes)
 
 app.use(errorHandler)
 

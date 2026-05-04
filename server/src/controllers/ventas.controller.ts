@@ -16,6 +16,7 @@ const ventaSchema = z.object({
     )
     .min(1),
   paymentMethod: z.enum(PAYMENT_METHODS).default('EFECTIVO'),
+  discount: z.number().min(0).default(0),
   notes: z.string().optional(),
 })
 
@@ -26,7 +27,7 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     return
   }
 
-  const { items, paymentMethod, notes } = parsed.data
+  const { items, paymentMethod, discount, notes } = parsed.data
 
   // Separar ítems por tipo
   const productItems = items.filter((i): i is { productId: number; quantity: number } => 'productId' in i)
@@ -127,13 +128,16 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     const t = tragos.find((t) => t.id === item.tragoId)!
     return sum + Number(t.salePrice ?? 0) * item.quantity
   }, 0)
-  const total = totalProductos + totalTragos
+  const subtotal = totalProductos + totalTragos
+  const total    = Math.max(0, subtotal - discount)
 
   const sale = await prisma.$transaction(
     async (tx) => {
       const newSale = await tx.sale.create({
         data: {
           userId: req.user!.userId,
+          subtotal,
+          discount,
           total,
           paymentMethod,
           notes,
@@ -240,6 +244,120 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
 
   broadcastCatalogUpdate()
   res.status(201).json(sale)
+}
+
+export async function getRanking(req: AuthRequest, res: Response): Promise<void> {
+  const { from, to } = req.query
+  const where: Record<string, unknown> = {}
+  if (from || to) {
+    where.sale = {
+      createdAt: {
+        ...(from ? { gte: new Date(from as string) } : {}),
+        ...(to   ? { lte: new Date(to   as string) } : {}),
+      },
+    }
+  }
+
+  // Agrupar SaleItems
+  const items = await prisma.saleItem.findMany({
+    where,
+    select: { tragoId: true, productId: true, nombre: true, quantity: true, unitPrice: true },
+  })
+
+  // Acumular por tragoId/productId
+  const map = new Map<string, { nombre: string; tragoId: number | null; productId: number | null; qty: number; revenue: number }>()
+  for (const item of items) {
+    const key = item.tragoId ? `t_${item.tragoId}` : `p_${item.productId}`
+    const prev = map.get(key)
+    if (prev) {
+      prev.qty     += Number(item.quantity)
+      prev.revenue += Number(item.quantity) * Number(item.unitPrice)
+    } else {
+      map.set(key, {
+        nombre:    item.nombre || '',
+        tragoId:   item.tragoId,
+        productId: item.productId,
+        qty:       Number(item.quantity),
+        revenue:   Number(item.quantity) * Number(item.unitPrice),
+      })
+    }
+  }
+
+  // Filtrar entradas sin tragoId ni productId (datos corruptos)
+  for (const [key, val] of map.entries()) {
+    if (!val.tragoId && !val.productId) map.delete(key)
+  }
+
+  // Obtener costos
+  const tragoIds   = [...map.values()].filter((v) => v.tragoId).map((v) => v.tragoId!)
+  const productIds = [...map.values()].filter((v) => v.productId).map((v) => v.productId!)
+
+  const [tragos, products] = await Promise.all([
+    tragoIds.length
+      ? prisma.trago.findMany({
+          where: { id: { in: tragoIds } },
+          include: {
+            ingredientes: {
+              include: {
+                product: {
+                  select: {
+                    id: true, costPrice: true,
+                    botellaActiva: { select: { capacidad: true } },
+                  },
+                },
+              },
+            },
+          },
+        })
+      : [],
+    productIds.length
+      ? prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true, costPrice: true } })
+      : [],
+  ])
+
+  const tragoMap   = new Map(tragos.map((t) => [t.id, t]))
+  const productMap = new Map(products.map((p) => [p.id, p]))
+
+  const ranking = [...map.values()].map((entry) => {
+    let cost = 0
+    if (entry.tragoId) {
+      const t = tragoMap.get(entry.tragoId)
+      if (t) {
+        cost = t.ingredientes.reduce((sum, ing) => {
+          const precio    = Number(ing.product.costPrice ?? 0)
+          const capacidad = Number(ing.product.botellaActiva?.capacidad ?? 0)
+          const ozCost    = capacidad > 0 ? precio / capacidad : 0
+          return sum + Number(ing.cantidad) * ozCost
+        }, 0)
+      }
+    } else if (entry.productId) {
+      const p = productMap.get(entry.productId)
+      cost = Number(p?.costPrice ?? 0)
+    }
+
+    const totalCost = cost * entry.qty
+    const margin    = entry.revenue - totalCost
+    const marginPct = entry.revenue > 0 ? (margin / entry.revenue) * 100 : 0
+
+    // Fallback de nombre desde la entidad si el SaleItem es antiguo (nombre vacío)
+    const fallbackNombre = entry.nombre ||
+      (entry.tragoId   ? (tragoMap.get(entry.tragoId)?.name   ?? `Trago #${entry.tragoId}`)   : '') ||
+      (entry.productId ? (productMap.get(entry.productId) as { name?: string } | undefined)?.name ?? `Producto #${entry.productId}` : '')
+
+    return {
+      nombre:    fallbackNombre,
+      tragoId:   entry.tragoId,
+      productId: entry.productId,
+      qty:       entry.qty,
+      revenue:   Math.round(entry.revenue),
+      cost:      Math.round(totalCost * 100) / 100,
+      margin:    Math.round(margin),
+      marginPct: Math.round(marginPct),
+    }
+  })
+
+  ranking.sort((a, b) => b.revenue - a.revenue)
+  res.json(ranking)
 }
 
 export async function getVentas(req: AuthRequest, res: Response): Promise<void> {

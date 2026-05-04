@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ToastProvider } from './context/ToastContext'
 import PrivateRoute from './components/PrivateRoute'
 import Layout from './components/Layout'
 
@@ -13,6 +14,11 @@ import Users from './pages/admin/Users'
 import Ventas from './pages/admin/Ventas'
 import Tragos from './pages/admin/Tragos'
 import Botellas from './pages/admin/Botellas'
+import CierreCaja from './pages/admin/CierreCaja'
+import Ranking from './pages/admin/Ranking'
+import ProductHistory from './pages/admin/ProductHistory'
+import Mesas from './pages/admin/Mesas'
+import Ordenes from './pages/admin/Ordenes'
 
 import StockView from './pages/user/StockView'
 import RegisterSalida from './pages/user/RegisterSalida'
@@ -28,6 +34,7 @@ function HomeRedirect() {
 export default function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <BrowserRouter>
         <Routes>
           {/* Públicas */}
@@ -44,6 +51,11 @@ export default function App() {
             <Route path="/venta" element={<RegisterVenta />} />
             <Route path="/tragos" element={<Tragos />} />
             <Route path="/botellas" element={<Botellas />} />
+            <Route path="/cierre" element={<CierreCaja />} />
+            <Route path="/ranking" element={<Ranking />} />
+            <Route path="/productos/:id/historial" element={<ProductHistory />} />
+            <Route path="/mesas" element={<Mesas />} />
+            <Route path="/ordenes" element={<Ordenes />} />
             <Route path="/usuarios" element={<Users />} />
           </Route>
 
@@ -56,6 +68,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   )
 }

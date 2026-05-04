@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../../lib/api'
 import { BotellaActiva, Product } from '../../types'
+import { useToast } from '../../context/ToastContext'
 
 // Capacidades estándar en oz
 const PRESETS = [
@@ -91,6 +92,7 @@ function BottleSvg({ restante, capacidad, alertaOz, uid }: {
 }
 
 export default function Botellas() {
+  const { showToast } = useToast()
   const [botellas, setBotellas] = useState<BotellaActiva[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -128,11 +130,12 @@ export default function Botellas() {
     if (capacidad <= 0) return setError('Ingresá una capacidad válida')
     setSaving(true)
     try {
-      await api.post('/botellas', {
+      const res = await api.post<{ product: { name: string } }>('/botellas', {
         productId: parseInt(productId),
         capacidad,
         alertaOz: parseFloat(alertaOz) || 3,
       })
+      showToast(`Botella de ${res.data.product?.name ?? 'producto'} abierta`)
       setShowForm(false)
       setProductId('')
       setPresetIdx(0)
@@ -149,6 +152,7 @@ export default function Botellas() {
   async function handleCerrar(pid: number, nombre: string) {
     if (!confirm(`¿Cerrar el seguimiento de "${nombre}"?`)) return
     await api.delete(`/botellas/${pid}`)
+    showToast(`Botella de ${nombre} cerrada`, 'info')
     load()
   }
 

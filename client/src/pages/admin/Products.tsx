@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../../lib/api'
 import { Product, Category } from '../../types'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Badge from '../../components/ui/Badge'
+import { useToast } from '../../context/ToastContext'
 
 const emptyForm = {
   name: '', categoryId: '', unit: '', minStock: '0',
@@ -13,6 +15,8 @@ const emptyForm = {
 const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
 
 export default function Products() {
+  const { showToast } = useToast()
+  const navigate = useNavigate()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -68,8 +72,10 @@ export default function Products() {
     try {
       if (editing) {
         await api.put(`/products/${editing.id}`, body)
+        showToast(`Producto "${form.name}" actualizado`)
       } else {
         await api.post('/products', body)
+        showToast(`Producto "${form.name}" creado`)
       }
       setShowForm(false)
       load()
@@ -82,15 +88,17 @@ export default function Products() {
     if (!confirm('¿Eliminar este producto?')) return
     try {
       await api.delete(`/products/${id}`)
+      showToast('Producto eliminado', 'info')
       load()
     } catch {
-      alert('No se puede eliminar: tiene movimientos o ventas asociadas. Usá "Fusionar" para unirlo con otro.')
+      showToast('No se puede eliminar: tiene movimientos o ventas asociadas', 'error')
     }
   }
 
   async function handleMerge(keepId: number, removeId: number, keepName: string) {
     if (!confirm(`¿Fusionar los duplicados en "${keepName}"? Se sumarán stocks y se eliminarán los repetidos.`)) return
     await api.post('/products/merge', { keepId, removeId })
+    showToast(`Duplicados fusionados en "${keepName}"`)
     load()
   }
 
@@ -232,8 +240,9 @@ export default function Products() {
                 )}
               </div>
               <div className="flex gap-1">
-                <button onClick={() => openEdit(p)} className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">✏️</button>
-                <button onClick={() => handleDelete(p.id)} className="rounded-lg p-2 text-zinc-600 hover:bg-red-950/50 hover:text-red-400">🗑️</button>
+                <button onClick={() => navigate(`/productos/${p.id}/historial`)} className="rounded-lg px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title="Ver historial">Historial</button>
+                <button onClick={() => openEdit(p)} className="rounded-lg px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">Editar</button>
+                <button onClick={() => handleDelete(p.id)} className="rounded-lg px-2 py-1.5 text-xs text-zinc-600 hover:bg-red-950/50 hover:text-red-400">Eliminar</button>
               </div>
             </div>
           </div>

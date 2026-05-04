@@ -5,10 +5,12 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Badge from '../../components/ui/Badge'
 import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
 
 const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
 
 export default function Users() {
+  const { showToast } = useToast()
   const [users, setUsers] = useState<User[]>([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'USER' })
@@ -26,6 +28,7 @@ export default function Users() {
     setSaving(true)
     try {
       await api.post('/auth/register', form)
+      showToast(`Usuario "${form.name}" creado`)
       setShowForm(false)
       setForm({ name: '', email: '', password: '', role: 'USER' })
       load()
@@ -34,8 +37,9 @@ export default function Users() {
     }
   }
 
-  async function toggleActive(id: number) {
+  async function toggleActive(id: number, currentActive: boolean) {
     await api.patch(`/users/${id}/toggle`)
+    showToast(currentActive ? 'Usuario desactivado' : 'Usuario activado', 'info')
     load()
   }
 
@@ -80,7 +84,7 @@ export default function Users() {
               {!u.active && <Badge label="Inactivo" color="red" />}
               {u.id !== me?.id && (
                 <button
-                  onClick={() => toggleActive(u.id)}
+                  onClick={() => toggleActive(u.id, u.active ?? true)}
                   className={`rounded-lg px-2 py-1 text-xs font-medium transition ${
                     u.active
                       ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50'

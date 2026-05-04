@@ -62,6 +62,7 @@ model Product {
   saleItems         SaleItem[]
   tragoIngredientes TragoBotella[]
   botellaActiva     BotellaActiva?
+  ordenItems        OrdenItem[]
 }
 
 model StockMovement {
@@ -81,6 +82,8 @@ model Sale {
   id            Int           @id @default(autoincrement())
   userId        Int
   user          User          @relation(fields: [userId], references: [id])
+  subtotal      Decimal       @db.Decimal(10, 2) @default(0)
+  discount      Decimal       @db.Decimal(10, 2) @default(0)
   total         Decimal       @db.Decimal(10, 2)
   paymentMethod PaymentMethod @default(EFECTIVO)
   notes         String?
@@ -129,4 +132,81 @@ model TragoBotella {
   productId Int
   product   Product @relation(fields: [productId], references: [id])
   cantidad  Decimal @db.Decimal(10, 3)
+}
+
+enum MesaStatus {
+  ABIERTA
+  CERRADA
+}
+
+model Mesa {
+  id        Int        @id @default(autoincrement())
+  numero    Int        @unique
+  nombre    String?
+  status    MesaStatus @default(ABIERTA)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  comandas  Comanda[]
+}
+
+model Comanda {
+  id        Int           @id @default(autoincrement())
+  mesaId    Int
+  mesa      Mesa          @relation(fields: [mesaId], references: [id])
+  userId    Int
+  notes     String?
+  status    MesaStatus    @default(ABIERTA)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  items     ComandaItem[]
+}
+
+model ComandaItem {
+  id        Int      @id @default(autoincrement())
+  comandaId Int
+  comanda   Comanda  @relation(fields: [comandaId], references: [id], onDelete: Cascade)
+  productId Int?
+  tragoId   Int?
+  nombre    String
+  quantity  Decimal  @db.Decimal(10, 3)
+  unitPrice Decimal  @db.Decimal(10, 2)
+}
+
+enum OrdenStatus {
+  PENDIENTE
+  RECIBIDA
+  CANCELADA
+}
+
+model Proveedor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  email     String?
+  notes     String?
+  createdAt DateTime @default(now())
+  ordenes   OrdenCompra[]
+}
+
+model OrdenCompra {
+  id           Int         @id @default(autoincrement())
+  proveedorId  Int?
+  proveedor    Proveedor?  @relation(fields: [proveedorId], references: [id])
+  userId       Int
+  status       OrdenStatus @default(PENDIENTE)
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  items        OrdenItem[]
+}
+
+model OrdenItem {
+  id          Int         @id @default(autoincrement())
+  ordenId     Int
+  orden       OrdenCompra @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  productId   Int
+  product     Product     @relation(fields: [productId], references: [id])
+  quantity    Decimal     @db.Decimal(10, 3)
+  unitCost    Decimal?    @db.Decimal(10, 2)
+  received    Decimal     @db.Decimal(10, 3) @default(0)
 }

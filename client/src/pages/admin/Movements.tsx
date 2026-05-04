@@ -4,11 +4,13 @@ import { MovementsResponse, Product } from '../../types'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import { useToast } from '../../context/ToastContext'
 
 const typeColor = { INGRESO: 'green', SALIDA: 'red', AJUSTE: 'yellow' } as const
 const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-2 py-2 text-sm text-zinc-100 outline-none focus:border-brand-500'
 
 export default function Movements() {
+  const { showToast } = useToast()
   const [data, setData] = useState<MovementsResponse | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [filters, setFilters] = useState({ productId: '', from: '', to: '', type: '' })
@@ -33,12 +35,14 @@ export default function Movements() {
   async function handleIngreso() {
     setSaving(true)
     try {
+      const prod = products.find((p) => p.id === parseInt(ingresoForm.productId))
       await api.post('/movements/ingreso', {
         productId: parseInt(ingresoForm.productId),
         quantity: parseFloat(ingresoForm.quantity),
         unitCost: ingresoForm.unitCost ? parseFloat(ingresoForm.unitCost) : undefined,
         notes: ingresoForm.notes || undefined,
       })
+      showToast(`Ingreso de ${ingresoForm.quantity} ${prod?.unit ?? ''} de ${prod?.name ?? 'producto'} registrado`)
       setShowIngreso(false)
       setIngresoForm({ productId: '', quantity: '', unitCost: '', notes: '' })
       load()

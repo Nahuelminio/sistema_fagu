@@ -4,6 +4,7 @@ import { Trago, Product } from '../../types'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Badge from '../../components/ui/Badge'
+import { useToast } from '../../context/ToastContext'
 
 const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
 
@@ -14,6 +15,7 @@ function formatARS(n: number) {
 interface IngForm { productId: string; cantidad: string }
 
 export default function Tragos() {
+  const { showToast } = useToast()
   const [tragos, setTragos]       = useState<Trago[]>([])
   const [products, setProducts]   = useState<Product[]>([])
   const [showForm, setShowForm]   = useState(false)
@@ -68,8 +70,10 @@ export default function Tragos() {
     try {
       if (editing) {
         await api.put(`/tragos/${editing.id}`, body)
+        showToast(`Trago "${name}" actualizado`)
       } else {
         await api.post('/tragos', body)
+        showToast(`Trago "${name}" creado`)
       }
       setShowForm(false)
       load()
@@ -81,6 +85,7 @@ export default function Tragos() {
   async function handleDelete(id: number) {
     if (!confirm('¿Eliminar este trago?')) return
     await api.delete(`/tragos/${id}`)
+    showToast('Trago eliminado', 'info')
     load()
   }
 
@@ -162,7 +167,6 @@ export default function Tragos() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-base">🍹</span>
                     <p className="font-semibold text-zinc-100">{t.name}</p>
                     {!t.active && <Badge label="Inactivo" color="red" />}
                   </div>
@@ -218,8 +222,8 @@ export default function Tragos() {
                 </div>
 
                 <div className="flex gap-1 ml-3 shrink-0">
-                  <button onClick={() => openEdit(t)} className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">✏️</button>
-                  <button onClick={() => handleDelete(t.id)} className="rounded-lg p-2 text-zinc-600 hover:bg-red-950/50 hover:text-red-400">🗑️</button>
+                  <button onClick={() => openEdit(t)} className="rounded-lg px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">Editar</button>
+                  <button onClick={() => handleDelete(t.id)} className="rounded-lg px-2 py-1.5 text-xs text-zinc-600 hover:bg-red-950/50 hover:text-red-400">Eliminar</button>
                 </div>
               </div>
             </div>

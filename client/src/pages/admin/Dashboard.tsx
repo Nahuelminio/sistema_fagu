@@ -193,7 +193,7 @@ export default function Dashboard() {
             <Link key={b.id} to="/botellas"
               className="flex items-center justify-between rounded-xl border border-red-900/40 bg-red-950/20 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-zinc-100">🫙 {b.product.name}</p>
+                <p className="text-sm font-medium text-zinc-100">{b.product.name}</p>
                 <p className="text-xs text-zinc-500">Botella por reponer</p>
               </div>
               <span className="text-sm font-bold text-red-400">{Number(b.restante).toFixed(1)} oz</span>
@@ -204,7 +204,7 @@ export default function Dashboard() {
             <Link key={p.id} to="/productos"
               className="flex items-center justify-between rounded-xl border border-orange-900/40 bg-orange-950/20 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-zinc-100">📦 {p.name}</p>
+                <p className="text-sm font-medium text-zinc-100">{p.name}</p>
                 <p className="text-xs text-zinc-500">{p.category.name} · mín {p.minStock}</p>
               </div>
               <span className="text-sm font-bold text-orange-400">{p.currentStock} {p.unit}</span>
