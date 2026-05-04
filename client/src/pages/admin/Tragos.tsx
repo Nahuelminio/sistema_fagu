@@ -142,33 +142,76 @@ export default function Tragos() {
       )}
 
       <div className="flex flex-col gap-2">
-        {tragos.map((t) => (
-          <div key={t.id} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">🍹</span>
-                  <p className="font-semibold text-zinc-100">{t.name}</p>
-                  {t.salePrice && (
-                    <span className="text-sm font-bold text-brand-400">{formatARS(Number(t.salePrice))}</span>
-                  )}
-                  {!t.active && <Badge label="Inactivo" color="red" />}
+        {tragos.map((t) => {
+          // Calcular costo total del trago
+          let costoTotal = 0
+          let costoCompleto = true
+          for (const ing of t.ingredientes) {
+            if (ing.product.costPrice == null) { costoCompleto = false; break }
+            costoTotal += Number(ing.cantidad) * Number(ing.product.costPrice)
+          }
+          const margen = t.salePrice && costoCompleto
+            ? Number(t.salePrice) - costoTotal
+            : null
+
+          return (
+            <div key={t.id} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-base">🍹</span>
+                    <p className="font-semibold text-zinc-100">{t.name}</p>
+                    {!t.active && <Badge label="Inactivo" color="red" />}
+                  </div>
+
+                  {/* Precios y costo */}
+                  <div className="mt-2 flex items-center gap-3 flex-wrap">
+                    {t.salePrice && (
+                      <span className="text-sm font-bold text-brand-400">
+                        Venta {formatARS(Number(t.salePrice))}
+                      </span>
+                    )}
+                    {costoCompleto ? (
+                      <span className="text-sm text-zinc-400">
+                        Costo <span className="font-semibold text-zinc-200">{formatARS(costoTotal)}</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-zinc-600 italic">Costo incompleto (falta precio en ingredientes)</span>
+                    )}
+                    {margen !== null && (
+                      <span className={`text-sm font-bold ${margen >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        Margen {formatARS(margen)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Ingredientes */}
+                  <div className="mt-2 flex flex-col gap-1">
+                    {t.ingredientes.map((ing) => (
+                      <div key={ing.id} className="flex items-center justify-between rounded-lg bg-zinc-800/60 px-2 py-1">
+                        <span className="text-xs text-zinc-400">
+                          {ing.product.name} · {ing.cantidad} {ing.product.unit}
+                        </span>
+                        {ing.product.costPrice != null ? (
+                          <span className="text-xs text-zinc-500">
+                            {formatARS(Number(ing.cantidad) * Number(ing.product.costPrice))}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-zinc-700">sin costo</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {t.ingredientes.map((ing) => (
-                    <span key={ing.id} className="rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                      {ing.product.name} {ing.cantidad} {ing.product.unit}
-                    </span>
-                  ))}
+
+                <div className="flex gap-1 ml-3 shrink-0">
+                  <button onClick={() => openEdit(t)} className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">✏️</button>
+                  <button onClick={() => handleDelete(t.id)} className="rounded-lg p-2 text-zinc-600 hover:bg-red-950/50 hover:text-red-400">🗑️</button>
                 </div>
-              </div>
-              <div className="flex gap-1 ml-2">
-                <button onClick={() => openEdit(t)} className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">✏️</button>
-                <button onClick={() => handleDelete(t.id)} className="rounded-lg p-2 text-zinc-600 hover:bg-red-950/50 hover:text-red-400">🗑️</button>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

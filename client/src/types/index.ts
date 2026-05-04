@@ -79,7 +79,7 @@ export interface TragoBotella {
   id: number
   productId: number
   cantidad: string
-  product: { id: number; name: string; unit: string; currentStock: string }
+  product: { id: number; name: string; unit: string; currentStock: string; costPrice: string | null }
 }
 
 export interface Trago {
