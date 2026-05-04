@@ -3,6 +3,6 @@ builder = "nixpacks"
 buildCommand = "npm run install:all && npm run build && cd server && npx prisma generate"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "cd server && npx prisma migrate deploy && cd .. && npm start"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
