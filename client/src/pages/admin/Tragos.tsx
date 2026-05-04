@@ -22,6 +22,14 @@ export default function Tragos() {
   const [salePrice, setSalePrice] = useState('')
   const [ings, setIngs]           = useState<IngForm[]>([{ productId: '', cantidad: '' }])
   const [saving, setSaving]       = useState(false)
+  const [editingCost, setEditingCost] = useState<{ productId: number; value: string } | null>(null)
+
+  async function saveCost(productId: number, costPrice: string) {
+    await api.put(`/products/${productId}`, { costPrice: parseFloat(costPrice) })
+    setEditingCost(null)
+    load()
+    loadProducts()
+  }
 
   useEffect(() => { load(); loadProducts() }, [])
 
@@ -187,20 +195,51 @@ export default function Tragos() {
 
                   {/* Ingredientes */}
                   <div className="mt-2 flex flex-col gap-1">
-                    {t.ingredientes.map((ing) => (
-                      <div key={ing.id} className="flex items-center justify-between rounded-lg bg-zinc-800/60 px-2 py-1">
-                        <span className="text-xs text-zinc-400">
-                          {ing.product.name} · {ing.cantidad} {ing.product.unit}
-                        </span>
-                        {ing.product.costPrice != null ? (
-                          <span className="text-xs text-zinc-500">
-                            {formatARS(Number(ing.cantidad) * Number(ing.product.costPrice))}
+                    {t.ingredientes.map((ing) => {
+                      const isEditingThis = editingCost?.productId === ing.productId
+                      return (
+                        <div key={ing.id} className="flex items-center justify-between rounded-lg bg-zinc-800/60 px-2 py-1 gap-2">
+                          <span className="text-xs text-zinc-400 flex-1">
+                            {ing.product.name} · {ing.cantidad} {ing.product.unit}
                           </span>
-                        ) : (
-                          <span className="text-xs text-zinc-700">sin costo</span>
-                        )}
-                      </div>
-                    ))}
+                          {isEditingThis ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-zinc-500">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                autoFocus
+                                value={editingCost.value}
+                                onChange={e => setEditingCost({ productId: ing.productId, value: e.target.value })}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') saveCost(ing.productId, editingCost.value)
+                                  if (e.key === 'Escape') setEditingCost(null)
+                                }}
+                                className="w-20 rounded border border-zinc-600 bg-zinc-700 px-1 py-0.5 text-xs text-zinc-100 outline-none"
+                                placeholder="por oz"
+                              />
+                              <button onClick={() => saveCost(ing.productId, editingCost.value)} className="text-xs text-green-400">✓</button>
+                              <button onClick={() => setEditingCost(null)} className="text-xs text-zinc-600">✕</button>
+                            </div>
+                          ) : ing.product.costPrice != null ? (
+                            <button
+                              onClick={() => setEditingCost({ productId: ing.productId, value: String(ing.product.costPrice) })}
+                              className="text-xs text-zinc-500 hover:text-zinc-300 transition"
+                              title="Editar costo por oz"
+                            >
+                              {formatARS(Number(ing.cantidad) * Number(ing.product.costPrice))}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setEditingCost({ productId: ing.productId, value: '' })}
+                              className="text-xs text-zinc-700 hover:text-brand-400 transition"
+                            >
+                              + costo/oz
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
 
