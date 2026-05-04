@@ -11,6 +11,7 @@ import dashboardRoutes from './routes/dashboard.routes'
 import userRoutes from './routes/users.routes'
 import categoryRoutes from './routes/categories.routes'
 import ventasRoutes from './routes/ventas.routes'
+import tragosRoutes from './routes/tragos.routes'
 import { errorHandler } from './middlewares/error.middleware'
 
 const app = express()
@@ -28,6 +29,7 @@ app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/categories', categoryRoutes)
 app.use('/api/ventas', ventasRoutes)
+app.use('/api/tragos', tragosRoutes)
 
 app.use(errorHandler)
 

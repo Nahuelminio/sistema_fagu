@@ -79,12 +79,31 @@ export interface MovementsResponse {
   pages: number
 }
 
-export interface SaleItem {
+export interface TragoBotella {
   id: number
   productId: number
+  cantidad: string
+  product: { id: number; name: string; unit: string; currentStock: string }
+}
+
+export interface Trago {
+  id: number
+  name: string
+  salePrice: string | null
+  active: boolean
+  createdAt: string
+  ingredientes: TragoBotella[]
+}
+
+export interface SaleItem {
+  id: number
+  productId: number | null
+  tragoId: number | null
+  nombre: string
   quantity: string
   unitPrice: string
-  product: { id: number; name: string; unit: string }
+  product: { id: number; name: string; unit: string } | null
+  trago: { id: number; name: string } | null
 }
 
 export type PaymentMethod = 'EFECTIVO' | 'DEBITO' | 'CREDITO' | 'TRANSFERENCIA' | 'MERCADOPAGO' | 'CUENTA_CORRIENTE'

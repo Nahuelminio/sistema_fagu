@@ -48,7 +48,7 @@ function VentaCard({ venta }: { venta: Sale }) {
             {venta.items.map((item) => (
               <div key={item.id} className="flex justify-between text-sm">
                 <span className="text-zinc-400">
-                  {item.product.name} ×{item.quantity} {item.product.unit}
+                  {item.nombre || item.product?.name || item.trago?.name} ×{item.quantity} {item.product?.unit ?? 'u'}
                 </span>
                 <span className="text-zinc-500">
                   {formatARS(Number(item.unitPrice) * Number(item.quantity))}

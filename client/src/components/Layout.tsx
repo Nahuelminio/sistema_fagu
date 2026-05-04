@@ -3,9 +3,10 @@ import { useAuth } from '../context/AuthContext'
 
 const adminLinks = [
   { to: '/dashboard',   label: 'Dashboard',   icon: '📊' },
-  { to: '/productos',   label: 'Productos',   icon: '📦' },
   { to: '/venta',       label: 'Nueva venta', icon: '🛒' },
   { to: '/ventas',      label: 'Ventas',      icon: '💰' },
+  { to: '/tragos',      label: 'Tragos',      icon: '🍹' },
+  { to: '/productos',   label: 'Productos',   icon: '📦' },
   { to: '/movimientos', label: 'Movimientos', icon: '🔄' },
   { to: '/usuarios',    label: 'Usuarios',    icon: '👥' },
 ]

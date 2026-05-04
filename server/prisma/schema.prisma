@@ -60,6 +60,7 @@ model Product {
   updatedAt        DateTime        @updatedAt
   movements        StockMovement[]
   saleItems        SaleItem[]
+  tragoIngredientes TragoBotella[]
 }
 
 model StockMovement {
@@ -87,11 +88,33 @@ model Sale {
 }
 
 model SaleItem {
-  id        Int     @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   saleId    Int
-  sale      Sale    @relation(fields: [saleId], references: [id])
+  sale      Sale     @relation(fields: [saleId], references: [id])
+  productId Int?
+  product   Product? @relation(fields: [productId], references: [id])
+  tragoId   Int?
+  trago     Trago?   @relation(fields: [tragoId], references: [id])
+  nombre    String   @default("")
+  quantity  Decimal  @db.Decimal(10, 3)
+  unitPrice Decimal  @db.Decimal(10, 2)
+}
+
+model Trago {
+  id           Int            @id @default(autoincrement())
+  name         String         @unique
+  salePrice    Decimal?       @db.Decimal(10, 2)
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  ingredientes TragoBotella[]
+  saleItems    SaleItem[]
+}
+
+model TragoBotella {
+  id        Int     @id @default(autoincrement())
+  tragoId   Int
+  trago     Trago   @relation(fields: [tragoId], references: [id], onDelete: Cascade)
   productId Int
   product   Product @relation(fields: [productId], references: [id])
-  quantity  Decimal @db.Decimal(10, 3)
-  unitPrice Decimal @db.Decimal(10, 2)
+  cantidad  Decimal @db.Decimal(10, 3)
 }
