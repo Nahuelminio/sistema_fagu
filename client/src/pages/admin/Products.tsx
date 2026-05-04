@@ -20,6 +20,7 @@ export default function Products() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'name' | 'stock-desc' | 'stock-asc'>('name')
 
   useEffect(() => {
     load()
@@ -100,10 +101,16 @@ export default function Products() {
     }, {})
   ).filter((g) => g.length > 1)
 
-  const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.category.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = products
+    .filter((p) =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.category.name.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortBy === 'stock-desc') return Number(b.currentStock) - Number(a.currentStock)
+      if (sortBy === 'stock-asc')  return Number(a.currentStock) - Number(b.currentStock)
+      return a.name.localeCompare(b.name)
+    })
 
   const stockColor = (p: Product) =>
     Number(p.currentStock) <= Number(p.minStock) ? 'red' : 'green'
@@ -115,7 +122,20 @@ export default function Products() {
         <Button onClick={openCreate}>+ Nuevo</Button>
       </div>
 
-      <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
+        >
+          <option value="name">A–Z</option>
+          <option value="stock-desc">Mayor stock</option>
+          <option value="stock-asc">Menor stock</option>
+        </select>
+      </div>
 
       {/* Duplicados detectados */}
       {duplicateGroups.length > 0 && (
