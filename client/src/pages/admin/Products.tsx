@@ -36,6 +36,7 @@ export default function Products() {
     setEditing(null)
     setForm(emptyForm)
     setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function openEdit(p: Product) {
@@ -50,6 +51,7 @@ export default function Products() {
       visibleInCatalog: p.visibleInCatalog,
     })
     setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleSave() {
