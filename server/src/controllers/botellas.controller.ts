@@ -30,12 +30,45 @@ export async function abrirBotella(req: AuthRequest, res: Response): Promise<voi
 
   const { productId, capacidad, alertaOz = 3 } = parsed.data
 
-  // upsert: si ya existe la reemplaza (abriste una nueva botella)
-  const botella = await prisma.botellaActiva.upsert({
-    where:  { productId },
-    update: { capacidad, restante: capacidad, alertaOz, abiertaEn: new Date() },
-    create: { productId, capacidad, restante: capacidad, alertaOz },
-    include: botellaInclude,
+  const botella = await prisma.$transaction(async (tx) => {
+    // Verificar si ya había una botella abierta para no duplicar stock
+    const anterior = await tx.botellaActiva.findUnique({ where: { productId } })
+
+    // Upsert: si ya existe la reemplaza (nueva botella)
+    const b = await tx.botellaActiva.upsert({
+      where:  { productId },
+      update: { capacidad, restante: capacidad, alertaOz, abiertaEn: new Date() },
+      create: { productId, capacidad, restante: capacidad, alertaOz },
+      include: botellaInclude,
+    })
+
+    // Si no había botella previa (o la anterior está diferente), ingresamos la capacidad al stock
+    // Si ya había una, restamos lo que quedaba y sumamos la nueva (reposición)
+    const stockAnterior = anterior ? Number(anterior.restante) : 0
+    const diferencia = capacidad - stockAnterior
+
+    if (diferencia !== 0) {
+      const type = diferencia > 0 ? 'INGRESO' : 'SALIDA'
+      await tx.stockMovement.create({
+        data: {
+          productId,
+          userId: req.user!.userId,
+          type,
+          quantity: Math.abs(diferencia),
+          notes: anterior ? `Reposición de botella (${capacidad} oz)` : `Apertura de botella (${capacidad} oz)`,
+        },
+      })
+      await tx.product.update({
+        where: { id: productId },
+        data: {
+          currentStock: diferencia > 0
+            ? { increment: diferencia }
+            : { decrement: Math.abs(diferencia) },
+        },
+      })
+    }
+
+    return b
   })
 
   res.status(201).json(botella)
