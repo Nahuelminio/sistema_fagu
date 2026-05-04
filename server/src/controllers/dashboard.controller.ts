@@ -7,7 +7,7 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
   today.setHours(0, 0, 0, 0)
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 
-  const [totalProducts, allProducts, todayMovements, monthIngresos, monthSalidas] =
+  const [totalProducts, allProducts, todayVentas, monthIngresos, monthVentas] =
     await Promise.all([
       prisma.product.count(),
 
@@ -22,16 +22,16 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
         },
       }),
 
-      prisma.stockMovement.count({ where: { createdAt: { gte: today } } }),
+      prisma.sale.count({ where: { createdAt: { gte: today } } }),
 
       prisma.stockMovement.findMany({
         where: { type: 'INGRESO', createdAt: { gte: monthStart } },
         select: { quantity: true, unitCost: true },
       }),
 
-      prisma.stockMovement.findMany({
-        where: { type: 'SALIDA', createdAt: { gte: monthStart } },
-        include: { product: { select: { salePrice: true, costPrice: true } } },
+      prisma.sale.findMany({
+        where: { createdAt: { gte: monthStart } },
+        select: { total: true },
       }),
     ])
 
@@ -44,19 +44,16 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
     0
   )
 
-  const ventasMes = monthSalidas.reduce(
-    (sum, m) => sum + Number(m.quantity) * Number(m.product.salePrice ?? 0),
-    0
-  )
+  const ventasMes = monthVentas.reduce((sum, v) => sum + Number(v.total), 0)
 
   res.json({
     totalProducts,
     lowStockProducts,
-    todayMovements,
+    todayVentas,
     month: {
       costoCompras: costoMes,
-      ventasEstimadas: ventasMes,
-      gananciaEstimada: ventasMes - costoMes,
+      ventas: ventasMes,
+      ganancia: ventasMes - costoMes,
     },
   })
 }

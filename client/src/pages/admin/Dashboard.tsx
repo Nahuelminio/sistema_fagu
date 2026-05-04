@@ -32,15 +32,15 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Productos" value={data.totalProducts} />
-        <StatCard label="Movimientos hoy" value={data.todayMovements} />
+        <StatCard label="Ventas hoy" value={data.todayVentas} />
         <StatCard label="Compras del mes" value={formatARS(data.month.costoCompras)} />
-        <StatCard label="Ventas estimadas" value={formatARS(data.month.ventasEstimadas)} />
+        <StatCard label="Ventas del mes" value={formatARS(data.month.ventas)} />
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Ganancia estimada del mes</p>
-        <p className={`mt-1 text-3xl font-bold ${data.month.gananciaEstimada >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {formatARS(data.month.gananciaEstimada)}
+        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Ganancia del mes</p>
+        <p className={`mt-1 text-3xl font-bold ${data.month.ganancia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          {formatARS(data.month.ganancia)}
         </p>
       </div>
 

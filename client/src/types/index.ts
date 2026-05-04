@@ -50,11 +50,11 @@ export interface DashboardData {
     minStock: string
     category: { name: string }
   }>
-  todayMovements: number
+  todayVentas: number
   month: {
     costoCompras: number
-    ventasEstimadas: number
-    gananciaEstimada: number
+    ventas: number
+    ganancia: number
   }
 }
 
