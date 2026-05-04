@@ -77,9 +77,28 @@ export default function Products() {
 
   async function handleDelete(id: number) {
     if (!confirm('¿Eliminar este producto?')) return
-    await api.delete(`/products/${id}`)
+    try {
+      await api.delete(`/products/${id}`)
+      load()
+    } catch {
+      alert('No se puede eliminar: tiene movimientos o ventas asociadas. Usá "Fusionar" para unirlo con otro.')
+    }
+  }
+
+  async function handleMerge(keepId: number, removeId: number, keepName: string) {
+    if (!confirm(`¿Fusionar los duplicados en "${keepName}"? Se sumarán stocks y se eliminarán los repetidos.`)) return
+    await api.post('/products/merge', { keepId, removeId })
     load()
   }
+
+  // Grupos de duplicados (mismo nombre, ignorando mayúsculas)
+  const duplicateGroups = Object.values(
+    products.reduce<Record<string, Product[]>>((acc, p) => {
+      const key = p.name.toLowerCase().trim()
+      acc[key] = [...(acc[key] ?? []), p]
+      return acc
+    }, {})
+  ).filter((g) => g.length > 1)
 
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -97,6 +116,42 @@ export default function Products() {
       </div>
 
       <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
+
+      {/* Duplicados detectados */}
+      {duplicateGroups.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-2xl border border-yellow-900/50 bg-yellow-950/20 p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-yellow-500">
+            ⚠ Productos duplicados detectados
+          </p>
+          {duplicateGroups.map((group) => {
+            // El que tiene más stock/referencias es el "principal" sugerido
+            const sorted = [...group].sort((a, b) => Number(b.currentStock) - Number(a.currentStock))
+            const keep = sorted[0]
+            return (
+              <div key={keep.name} className="flex flex-col gap-1.5">
+                <p className="text-sm font-medium text-zinc-300">{keep.name}</p>
+                <div className="flex flex-col gap-1 pl-2">
+                  {sorted.slice(1).map((dup) => (
+                    <div key={dup.id} className="flex items-center justify-between rounded-lg bg-zinc-900 px-3 py-2">
+                      <div>
+                        <span className="text-xs text-zinc-400">ID {dup.id}</span>
+                        <span className="ml-2 text-xs text-zinc-500">stock: {dup.currentStock} {dup.unit}</span>
+                        <span className="ml-2 text-xs text-zinc-600">{dup.category.name}</span>
+                      </div>
+                      <button
+                        onClick={() => handleMerge(keep.id, dup.id, keep.name)}
+                        className="rounded-lg bg-yellow-900/50 px-3 py-1 text-xs font-semibold text-yellow-400 hover:bg-yellow-900/80 transition"
+                      >
+                        Fusionar →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {showForm && (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">

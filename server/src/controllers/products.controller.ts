@@ -88,3 +88,59 @@ export async function remove(req: AuthRequest, res: Response): Promise<void> {
     res.status(404).json({ error: 'Producto no encontrado' })
   }
 }
+
+// Fusiona removeId en keepId: reasigna todas las FK y suma el stock
+export async function mergeProducts(req: AuthRequest, res: Response): Promise<void> {
+  const { keepId, removeId } = req.body as { keepId: number; removeId: number }
+
+  if (!keepId || !removeId || keepId === removeId) {
+    res.status(400).json({ error: 'keepId y removeId deben ser distintos y válidos' })
+    return
+  }
+
+  const [keep, remove] = await Promise.all([
+    prisma.product.findUnique({ where: { id: keepId } }),
+    prisma.product.findUnique({ where: { id: removeId } }),
+  ])
+  if (!keep || !remove) {
+    res.status(404).json({ error: 'Uno o ambos productos no encontrados' })
+    return
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Reasignar movimientos de stock
+    await tx.stockMovement.updateMany({ where: { productId: removeId }, data: { productId: keepId } })
+
+    // Reasignar ítems de venta
+    await tx.saleItem.updateMany({ where: { productId: removeId }, data: { productId: keepId } })
+
+    // Reasignar ingredientes de tragos
+    // Si ya existe la combinación (keepId, tragoId), eliminar el duplicado
+    const ingKeep = await tx.tragoBotella.findMany({ where: { productId: keepId }, select: { tragoId: true } })
+    const tragoIdsKeep = new Set(ingKeep.map((i) => i.tragoId))
+    await tx.tragoBotella.deleteMany({
+      where: { productId: removeId, tragoId: { in: [...tragoIdsKeep] } },
+    })
+    await tx.tragoBotella.updateMany({ where: { productId: removeId }, data: { productId: keepId } })
+
+    // Botellas activas: si keep ya tiene, eliminar la del remove; si no, reasignar
+    const botellaKeep = await tx.botellaActiva.findUnique({ where: { productId: keepId } })
+    if (botellaKeep) {
+      await tx.botellaActiva.deleteMany({ where: { productId: removeId } })
+    } else {
+      await tx.botellaActiva.updateMany({ where: { productId: removeId }, data: { productId: keepId } })
+    }
+
+    // Sumar el stock del duplicado al que se queda
+    await tx.product.update({
+      where: { id: keepId },
+      data: { currentStock: { increment: remove.currentStock } },
+    })
+
+    // Eliminar el duplicado
+    await tx.product.delete({ where: { id: removeId } })
+  })
+
+  const result = await prisma.product.findUnique({ where: { id: keepId }, select: productSelect })
+  res.json(result)
+}
