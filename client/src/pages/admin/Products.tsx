@@ -10,6 +10,8 @@ const emptyForm = {
   costPrice: '', salePrice: '', visibleInCatalog: false,
 }
 
+const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
+
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -90,24 +92,20 @@ export default function Products() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Productos</h1>
+        <h1 className="text-xl font-bold text-zinc-100">Productos</h1>
         <Button onClick={openCreate}>+ Nuevo</Button>
       </div>
 
       <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
 
       {showForm && (
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
-          <h2 className="mb-4 font-semibold">{editing ? 'Editar producto' : 'Nuevo producto'}</h2>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <h2 className="mb-4 font-semibold text-zinc-100">{editing ? 'Editar producto' : 'Nuevo producto'}</h2>
           <div className="flex flex-col gap-3">
             <Input label="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">Categoría</label>
-              <select
-                value={form.categoryId}
-                onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                className="rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500"
-              >
+              <label className="text-xs font-medium uppercase tracking-wide text-zinc-400">Categoría</label>
+              <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} className={selectClass}>
                 <option value="">Seleccionar...</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
@@ -118,8 +116,13 @@ export default function Products() {
               <Input label="Precio costo" type="number" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} />
               <Input label="Precio venta" type="number" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: e.target.value })} />
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.visibleInCatalog} onChange={(e) => setForm({ ...form, visibleInCatalog: e.target.checked })} />
+            <label className="flex items-center gap-2 text-sm text-zinc-400">
+              <input
+                type="checkbox"
+                checked={form.visibleInCatalog}
+                onChange={(e) => setForm({ ...form, visibleInCatalog: e.target.checked })}
+                className="accent-brand-500"
+              />
               Visible en catálogo público
             </label>
             <div className="flex gap-2 pt-2">
@@ -132,28 +135,28 @@ export default function Products() {
 
       <div className="flex flex-col gap-2">
         {filtered.map((p) => (
-          <div key={p.id} className="rounded-2xl bg-white p-4 shadow-sm">
+          <div key={p.id} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold text-gray-900">{p.name}</p>
+                  <p className="font-semibold text-zinc-100">{p.name}</p>
                   {p.visibleInCatalog && <Badge label="Catálogo" color="orange" />}
                 </div>
-                <p className="text-xs text-gray-500">{p.category.name} · {p.unit}</p>
-                <div className="mt-2 flex items-center gap-3 text-sm">
+                <p className="text-xs text-zinc-500">{p.category.name} · {p.unit}</p>
+                <div className="mt-2 flex items-center gap-3">
                   <Badge label={`Stock: ${p.currentStock}`} color={stockColor(p)} />
-                  <span className="text-gray-400 text-xs">mín {p.minStock}</span>
+                  <span className="text-xs text-zinc-600">mín {p.minStock}</span>
                 </div>
                 {(p.costPrice || p.salePrice) && (
-                  <div className="mt-1 flex gap-3 text-xs text-gray-500">
+                  <div className="mt-1 flex gap-3 text-xs text-zinc-500">
                     {p.costPrice && <span>Costo: ${p.costPrice}</span>}
-                    {p.salePrice && <span>Venta: ${p.salePrice}</span>}
+                    {p.salePrice && <span className="text-brand-400">Venta: ${p.salePrice}</span>}
                   </div>
                 )}
               </div>
               <div className="flex gap-1">
-                <button onClick={() => openEdit(p)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">✏️</button>
-                <button onClick={() => handleDelete(p.id)} className="rounded-lg p-2 text-gray-400 hover:bg-red-50">🗑️</button>
+                <button onClick={() => openEdit(p)} className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">✏️</button>
+                <button onClick={() => handleDelete(p.id)} className="rounded-lg p-2 text-zinc-600 hover:bg-red-950/50 hover:text-red-400">🗑️</button>
               </div>
             </div>
           </div>

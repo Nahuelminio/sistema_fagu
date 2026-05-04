@@ -21,20 +21,20 @@ export default function StockView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold text-gray-900">Stock actual</h1>
+      <h1 className="text-xl font-bold text-zinc-100">Stock actual</h1>
       <Input placeholder="Buscar producto..." value={search} onChange={(e) => setSearch(e.target.value)} />
 
       <div className="flex flex-col gap-2">
         {filtered.map((p) => (
-          <div key={p.id} className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm">
+          <div key={p.id} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
             <div>
-              <p className="font-medium text-gray-900">{p.name}</p>
-              <p className="text-xs text-gray-500">{p.category.name} · {p.unit}</p>
+              <p className="font-medium text-zinc-100">{p.name}</p>
+              <p className="text-xs text-zinc-500">{p.category.name} · {p.unit}</p>
             </div>
             <div className="text-right">
               <Badge label={`${p.currentStock} ${p.unit}`} color={stockBadge(p)} />
               {Number(p.currentStock) <= Number(p.minStock) && (
-                <p className="mt-0.5 text-xs text-red-500">Bajo mínimo</p>
+                <p className="mt-0.5 text-xs text-red-400">Bajo mínimo</p>
               )}
             </div>
           </div>

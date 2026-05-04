@@ -1,11 +1,11 @@
 type Color = 'green' | 'red' | 'yellow' | 'gray' | 'orange'
 
 const colors: Record<Color, string> = {
-  green: 'bg-green-100 text-green-700',
-  red: 'bg-red-100 text-red-700',
-  yellow: 'bg-yellow-100 text-yellow-700',
-  gray: 'bg-gray-100 text-gray-600',
-  orange: 'bg-orange-100 text-orange-700',
+  green:  'bg-green-900/40 text-green-400 border border-green-800/50',
+  red:    'bg-red-900/40 text-red-400 border border-red-800/50',
+  yellow: 'bg-yellow-900/40 text-yellow-400 border border-yellow-800/50',
+  gray:   'bg-zinc-800 text-zinc-400 border border-zinc-700',
+  orange: 'bg-orange-900/40 text-orange-400 border border-orange-800/50',
 }
 
 export default function Badge({ label, color = 'gray' }: { label: string; color?: Color }) {

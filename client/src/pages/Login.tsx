@@ -27,13 +27,27 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm">
-        <div className="mb-8 text-center">
-          <div className="mb-2 text-4xl">🍺</div>
-          <h1 className="text-2xl font-bold text-gray-900">StockBar</h1>
-          <p className="mt-1 text-sm text-gray-500">Ingresá a tu cuenta</p>
-        </div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-4">
+      {/* Logo */}
+      <div className="mb-8 flex flex-col items-center">
+        <img
+          src="/logo.png"
+          alt="FAGU Drink Bar"
+          className="mb-4 h-28 w-28 rounded-full object-cover"
+          onError={(e) => {
+            // fallback si no existe el archivo
+            (e.target as HTMLImageElement).style.display = 'none'
+          }}
+        />
+        <h1 className="text-3xl font-black tracking-widest text-zinc-100">FAGU</h1>
+        <p className="mt-0.5 text-xs font-semibold tracking-[0.3em] text-zinc-500 uppercase">
+          Drink Bar
+        </p>
+      </div>
+
+      {/* Card */}
+      <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-8">
+        <p className="mb-6 text-center text-sm text-zinc-400">Ingresá a tu cuenta</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
@@ -54,7 +68,9 @@ export default function Login() {
           />
 
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+            <p className="rounded-lg bg-red-900/30 border border-red-800/50 px-3 py-2 text-sm text-red-400">
+              {error}
+            </p>
           )}
 
           <Button type="submit" loading={loading} className="mt-2 w-full">

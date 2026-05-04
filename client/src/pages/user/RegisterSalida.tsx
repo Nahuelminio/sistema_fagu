@@ -4,6 +4,8 @@ import { Product } from '../../types'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 
+const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
+
 export default function RegisterSalida() {
   const [products, setProducts] = useState<Product[]>([])
   const [productId, setProductId] = useState('')
@@ -44,18 +46,13 @@ export default function RegisterSalida() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold text-gray-900">Registrar salida</h1>
+      <h1 className="text-xl font-bold text-zinc-100">Registrar salida</h1>
 
-      <form onSubmit={handleSubmit} className="rounded-2xl bg-white p-4 shadow-sm">
+      <form onSubmit={handleSubmit} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Producto</label>
-            <select
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-              required
-              className="rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500"
-            >
+            <label className="text-xs font-medium uppercase tracking-wide text-zinc-400">Producto</label>
+            <select value={productId} onChange={(e) => setProductId(e.target.value)} required className={selectClass}>
               <option value="">Seleccionar...</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -65,28 +62,13 @@ export default function RegisterSalida() {
             </select>
           </div>
 
-          <Input
-            label="Cantidad"
-            type="number"
-            step="0.001"
-            min="0.001"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            required
-          />
+          <Input label="Cantidad" type="number" step="0.001" min="0.001" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
+          <Input label="Notas (opcional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
 
-          <Input
-            label="Notas (opcional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
+          {error && <p className="rounded-lg border border-red-800/50 bg-red-900/30 px-3 py-2 text-sm text-red-400">{error}</p>}
+          {success && <p className="rounded-lg border border-green-800/50 bg-green-900/30 px-3 py-2 text-sm text-green-400">✓ {success}</p>}
 
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-          {success && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{success}</p>}
-
-          <Button type="submit" loading={saving} className="w-full">
-            Registrar salida
-          </Button>
+          <Button type="submit" loading={saving} className="w-full">Registrar salida</Button>
         </div>
       </form>
     </div>
