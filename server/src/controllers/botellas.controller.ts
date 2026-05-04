@@ -38,19 +38,19 @@ export async function abrirBotella(req: AuthRequest, res: Response): Promise<voi
       include: botellaInclude,
     })
 
-    // Siempre registrar INGRESO por la capacidad completa de la nueva botella
+    // Abrir botella = SALIDA del stock (pasa de alacena al mostrador)
     await tx.stockMovement.create({
       data: {
         productId,
         userId: req.user!.userId,
-        type: 'INGRESO',
+        type: 'SALIDA',
         quantity: capacidad,
         notes: `Apertura de botella (${capacidad} oz)`,
       },
     })
     await tx.product.update({
       where: { id: productId },
-      data: { currentStock: { increment: capacidad } },
+      data: { currentStock: { decrement: capacidad } },
     })
 
     return b
