@@ -4,14 +4,17 @@ import { useAuth } from '../context/AuthContext'
 const adminLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },
   { to: '/productos', label: 'Productos', icon: '📦' },
+  { to: '/venta', label: 'Nueva venta', icon: '🛒' },
+  { to: '/ventas', label: 'Ventas', icon: '💰' },
   { to: '/movimientos', label: 'Movimientos', icon: '🔄' },
   { to: '/usuarios', label: 'Usuarios', icon: '👥' },
 ]
 
 const userLinks = [
   { to: '/stock', label: 'Stock', icon: '📦' },
-  { to: '/salida', label: 'Registrar salida', icon: '➖' },
-  { to: '/mis-movimientos', label: 'Mis movimientos', icon: '📋' },
+  { to: '/venta', label: 'Nueva venta', icon: '🛒' },
+  { to: '/salida', label: 'Salida', icon: '➖' },
+  { to: '/mis-movimientos', label: 'Mis mov.', icon: '📋' },
 ]
 
 export default function Layout() {

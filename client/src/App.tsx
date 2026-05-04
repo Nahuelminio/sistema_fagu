@@ -10,10 +10,12 @@ import Dashboard from './pages/admin/Dashboard'
 import Products from './pages/admin/Products'
 import Movements from './pages/admin/Movements'
 import Users from './pages/admin/Users'
+import Ventas from './pages/admin/Ventas'
 
 import StockView from './pages/user/StockView'
 import RegisterSalida from './pages/user/RegisterSalida'
 import MyMovements from './pages/user/MyMovements'
+import RegisterVenta from './pages/RegisterVenta'
 
 function HomeRedirect() {
   const { user } = useAuth()
@@ -36,12 +38,15 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/productos" element={<Products />} />
             <Route path="/movimientos" element={<Movements />} />
+            <Route path="/ventas" element={<Ventas />} />
+            <Route path="/venta" element={<RegisterVenta />} />
             <Route path="/usuarios" element={<Users />} />
           </Route>
 
           {/* Usuario */}
           <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route path="/stock" element={<StockView />} />
+            <Route path="/venta" element={<RegisterVenta />} />
             <Route path="/salida" element={<RegisterSalida />} />
             <Route path="/mis-movimientos" element={<MyMovements />} />
           </Route>

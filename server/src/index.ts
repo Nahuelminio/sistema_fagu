@@ -10,6 +10,7 @@ import catalogRoutes from './routes/catalog.routes'
 import dashboardRoutes from './routes/dashboard.routes'
 import userRoutes from './routes/users.routes'
 import categoryRoutes from './routes/categories.routes'
+import ventasRoutes from './routes/ventas.routes'
 import { errorHandler } from './middlewares/error.middleware'
 
 const app = express()
@@ -26,6 +27,7 @@ app.use('/api/catalogo', catalogRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/categories', categoryRoutes)
+app.use('/api/ventas', ventasRoutes)
 
 app.use(errorHandler)
 

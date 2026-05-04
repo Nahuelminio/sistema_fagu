@@ -78,3 +78,28 @@ export interface MovementsResponse {
   page: number
   pages: number
 }
+
+export interface SaleItem {
+  id: number
+  productId: number
+  quantity: string
+  unitPrice: string
+  product: { id: number; name: string; unit: string }
+}
+
+export interface Sale {
+  id: number
+  total: string
+  notes: string | null
+  createdAt: string
+  user: { id: number; name: string }
+  items: SaleItem[]
+}
+
+export interface VentasResponse {
+  ventas: Sale[]
+  total: number
+  page: number
+  pages: number
+  totalRevenue: number
+}
