@@ -37,13 +37,23 @@ function MiniBar({ value, max, color = 'bg-brand-500' }: { value: number; max: n
 }
 
 export default function Dashboard() {
-  const [data, setData]       = useState<DashData | null>(null)
+  const [data, setData]         = useState<DashData | null>(null)
   const [botellas, setBotellas] = useState<BotellaActiva[]>([])
+  const [error, setError]       = useState('')
 
   useEffect(() => {
-    api.get<DashData>('/dashboard').then((r) => setData(r.data))
+    api.get<DashData>('/dashboard')
+      .then((r) => setData(r.data))
+      .catch((e) => setError(e?.response?.data?.error ?? e?.message ?? 'Error al cargar'))
     api.get<BotellaActiva[]>('/botellas').then((r) => setBotellas(r.data)).catch(() => {})
   }, [])
+
+  if (error) return (
+    <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center">
+      <p className="text-red-400 font-medium">Error al cargar el dashboard</p>
+      <p className="mt-1 text-xs text-zinc-500">{error}</p>
+    </div>
+  )
 
   if (!data) return (
     <div className="flex h-48 items-center justify-center text-zinc-500">Cargando...</div>
