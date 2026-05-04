@@ -4,6 +4,8 @@ import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
 import { broadcastCatalogUpdate } from '../services/sse.service'
 
+const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MERCADOPAGO', 'CUENTA_CORRIENTE'] as const
+
 const ventaSchema = z.object({
   items: z
     .array(
@@ -13,6 +15,7 @@ const ventaSchema = z.object({
       })
     )
     .min(1, 'Debe incluir al menos un producto'),
+  paymentMethod: z.enum(PAYMENT_METHODS).default('EFECTIVO'),
   notes: z.string().optional(),
 })
 
@@ -23,7 +26,7 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     return
   }
 
-  const { items, notes } = parsed.data
+  const { items, paymentMethod, notes } = parsed.data
 
   // Obtener productos para validar stock y precios
   const productIds = items.map((i) => i.productId)
@@ -60,6 +63,7 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
         data: {
           userId: req.user!.userId,
           total,
+          paymentMethod,
           notes,
           items: {
             create: items.map((item) => {

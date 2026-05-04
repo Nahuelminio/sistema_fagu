@@ -18,6 +18,15 @@ enum MovementType {
   AJUSTE
 }
 
+enum PaymentMethod {
+  EFECTIVO
+  DEBITO
+  CREDITO
+  TRANSFERENCIA
+  MERCADOPAGO
+  CUENTA_CORRIENTE
+}
+
 model User {
   id        Int             @id @default(autoincrement())
   email     String          @unique
@@ -67,13 +76,14 @@ model StockMovement {
 }
 
 model Sale {
-  id        Int        @id @default(autoincrement())
-  userId    Int
-  user      User       @relation(fields: [userId], references: [id])
-  total     Decimal    @db.Decimal(10, 2)
-  notes     String?
-  createdAt DateTime   @default(now())
-  items     SaleItem[]
+  id            Int           @id @default(autoincrement())
+  userId        Int
+  user          User          @relation(fields: [userId], references: [id])
+  total         Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod @default(EFECTIVO)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  items         SaleItem[]
 }
 
 model SaleItem {

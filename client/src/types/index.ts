@@ -87,9 +87,21 @@ export interface SaleItem {
   product: { id: number; name: string; unit: string }
 }
 
+export type PaymentMethod = 'EFECTIVO' | 'DEBITO' | 'CREDITO' | 'TRANSFERENCIA' | 'MERCADOPAGO' | 'CUENTA_CORRIENTE'
+
+export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
+  EFECTIVO: 'Efectivo',
+  DEBITO: 'Débito',
+  CREDITO: 'Crédito',
+  TRANSFERENCIA: 'Transferencia',
+  MERCADOPAGO: 'MercadoPago',
+  CUENTA_CORRIENTE: 'Cuenta corriente',
+}
+
 export interface Sale {
   id: number
   total: string
+  paymentMethod: PaymentMethod
   notes: string | null
   createdAt: string
   user: { id: number; name: string }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../../lib/api'
-import { VentasResponse, Sale } from '../../types'
+import { VentasResponse, Sale, PAYMENT_LABELS, PaymentMethod } from '../../types'
 import Badge from '../../components/ui/Badge'
 
 function formatARS(n: number) {
@@ -36,6 +36,7 @@ function VentaCard({ venta }: { venta: Sale }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Badge label={PAYMENT_LABELS[venta.paymentMethod as PaymentMethod]} color="gray" />
           <Badge label={formatARS(Number(venta.total))} color="green" />
           <span className="text-xs text-gray-400">{open ? '▲' : '▼'}</span>
         </div>

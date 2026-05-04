@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../lib/api'
-import { Product } from '../types'
+import { Product, PaymentMethod, PAYMENT_LABELS } from '../types'
 import Button from '../components/ui/Button'
 
 interface CartItem {
@@ -21,6 +21,7 @@ export default function RegisterVenta() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [quantity, setQuantity] = useState('1')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('EFECTIVO')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState('')
@@ -79,10 +80,12 @@ export default function RegisterVenta() {
     try {
       const res = await api.post('/ventas', {
         items: cart.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+        paymentMethod,
         notes: notes || undefined,
       })
       setSuccess(`Venta #${res.data.id} registrada por ${formatARS(Number(res.data.total))}`)
       setCart([])
+      setPaymentMethod('EFECTIVO')
       setNotes('')
       api.get<Product[]>('/products').then((r) => setProducts(r.data))
     } catch (err: unknown) {
@@ -190,6 +193,27 @@ export default function RegisterVenta() {
           <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
             <span className="text-sm font-semibold text-gray-700">Total</span>
             <span className="text-lg font-bold text-brand-600">{formatARS(total)}</span>
+          </div>
+
+          {/* Medio de pago */}
+          <div className="mt-3">
+            <p className="mb-1.5 text-xs font-medium text-gray-500">Medio de pago</p>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((method) => (
+                <button
+                  key={method}
+                  type="button"
+                  onClick={() => setPaymentMethod(method)}
+                  className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+                    paymentMethod === method
+                      ? 'border-brand-600 bg-brand-600 text-white'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  {PAYMENT_LABELS[method]}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Notas */}
