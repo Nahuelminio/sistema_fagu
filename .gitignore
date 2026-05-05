@@ -4,3 +4,6 @@ dist/
 .env.local
 *.log
 client/dist/
+
+# ARCA certificates (never commit these)
+server/certs/*.pem

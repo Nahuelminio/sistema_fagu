@@ -3,6 +3,7 @@ import { z } from 'zod'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
 import { broadcastCatalogUpdate } from '../services/sse.service'
+import { emitirFactura } from '../services/arca.service'
 
 const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MERCADOPAGO', 'CUENTA_CORRIENTE'] as const
 
@@ -241,6 +242,27 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     },
     { timeout: 20000 }
   )
+
+  // Facturación electrónica ARCA (solo si está habilitado en .env)
+  try {
+    const factura = await emitirFactura(total)
+    if (factura) {
+      await prisma.sale.update({
+        where: { id: sale.id },
+        data: {
+          cae:            factura.cae,
+          caeVencimiento: factura.caeVencimiento,
+          nroFactura:     factura.nroFactura,
+          puntoVenta:     factura.puntoVenta,
+        },
+      })
+      ;(sale as any).cae        = factura.cae
+      ;(sale as any).nroFactura = factura.nroFactura
+    }
+  } catch (err) {
+    // No bloquea la venta si ARCA falla — se puede reintentar después
+    console.error('[ARCA] Error al emitir factura:', err)
+  }
 
   broadcastCatalogUpdate()
   res.status(201).json(sale)

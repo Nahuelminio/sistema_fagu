@@ -79,16 +79,20 @@ model StockMovement {
 }
 
 model Sale {
-  id            Int           @id @default(autoincrement())
-  userId        Int
-  user          User          @relation(fields: [userId], references: [id])
-  subtotal      Decimal       @db.Decimal(10, 2) @default(0)
-  discount      Decimal       @db.Decimal(10, 2) @default(0)
-  total         Decimal       @db.Decimal(10, 2)
-  paymentMethod PaymentMethod @default(EFECTIVO)
-  notes         String?
-  createdAt     DateTime      @default(now())
-  items         SaleItem[]
+  id             Int           @id @default(autoincrement())
+  userId         Int
+  user           User          @relation(fields: [userId], references: [id])
+  subtotal       Decimal       @db.Decimal(10, 2) @default(0)
+  discount       Decimal       @db.Decimal(10, 2) @default(0)
+  total          Decimal       @db.Decimal(10, 2)
+  paymentMethod  PaymentMethod @default(EFECTIVO)
+  notes          String?
+  cae            String?
+  caeVencimiento DateTime?
+  nroFactura     Int?
+  puntoVenta     Int?
+  createdAt      DateTime      @default(now())
+  items          SaleItem[]
 }
 
 model SaleItem {
