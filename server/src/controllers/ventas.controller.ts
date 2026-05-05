@@ -19,6 +19,7 @@ const ventaSchema = z.object({
   paymentMethod: z.enum(PAYMENT_METHODS).default('EFECTIVO'),
   discount: z.number().min(0).default(0),
   notes: z.string().optional(),
+  generarFactura: z.boolean().optional(),
 })
 
 export async function createVenta(req: AuthRequest, res: Response): Promise<void> {
@@ -28,7 +29,10 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     return
   }
 
-  const { items, paymentMethod, discount, notes } = parsed.data
+  const { items, paymentMethod, discount, notes, generarFactura } = parsed.data
+
+  // No-efectivo → factura obligatoria. Efectivo → solo si el usuario lo pide.
+  const debeFacturar = paymentMethod !== 'EFECTIVO' || generarFactura === true
 
   // Separar ítems por tipo
   const productItems = items.filter((i): i is { productId: number; quantity: number } => 'productId' in i)
@@ -243,9 +247,9 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     { timeout: 20000 }
   )
 
-  // Facturación electrónica ARCA (solo si está habilitado en .env)
+  // Facturación electrónica ARCA
   try {
-    const factura = await emitirFactura(total)
+    const factura = debeFacturar ? await emitirFactura(total) : null
     if (factura) {
       await prisma.sale.update({
         where: { id: sale.id },

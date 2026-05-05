@@ -19,6 +19,7 @@ function formatARS(n: number) {
 }
 
 const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
+const CASH: PaymentMethod = 'EFECTIVO'
 
 export default function RegisterVenta() {
   const { showToast } = useToast()
@@ -28,18 +29,21 @@ export default function RegisterVenta() {
   const [tab, setTab]           = useState<'product' | 'trago'>('trago')
   const [selectedId, setSelectedId] = useState('')
   const [quantity, setQuantity]     = useState('1')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('EFECTIVO')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(CASH)
   const [discount, setDiscount] = useState('')
-  const [notes, setNotes]   = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState('')
+  const [notes, setNotes]       = useState('')
+  const [facturaEfectivo, setFacturaEfectivo] = useState(false)
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState('')
 
   useEffect(() => {
     api.get<Product[]>('/products').then((r) => setProducts(r.data))
     api.get<Trago[]>('/tragos').then((r) => setTragos(r.data))
   }, [])
 
-  // Opciones disponibles según el tab activo
+  // No-efectivo siempre genera factura; efectivo solo si el checkbox está activo
+  const generarFactura = paymentMethod !== CASH || facturaEfectivo
+
   const availableProducts = products.filter(
     (p) => Number(p.currentStock) > 0 && !cart.some((i) => i.type === 'product' && i.id === p.id)
   )
@@ -78,9 +82,9 @@ export default function RegisterVenta() {
     setCart((prev) => prev.map((i) => i.type === type && i.id === id ? { ...i, quantity: qty } : i))
   }
 
-  const subtotal = cart.reduce((sum, i) => sum + i.salePrice * i.quantity, 0)
+  const subtotal    = cart.reduce((sum, i) => sum + i.salePrice * i.quantity, 0)
   const discountAmt = parseFloat(discount) || 0
-  const total = Math.max(0, subtotal - discountAmt)
+  const total       = Math.max(0, subtotal - discountAmt)
 
   async function handleSubmit() {
     if (cart.length === 0) return
@@ -92,12 +96,24 @@ export default function RegisterVenta() {
           ? { productId: i.id, quantity: i.quantity }
           : { tragoId: i.id, quantity: i.quantity }
       )
-      const res = await api.post('/ventas', { items, paymentMethod, discount: discountAmt, notes: notes || undefined })
-      showToast(`Venta #${res.data.id} registrada — ${formatARS(Number(res.data.total))}`)
+      const res = await api.post('/ventas', {
+        items,
+        paymentMethod,
+        discount: discountAmt,
+        notes: notes || undefined,
+        generarFactura,
+      })
+      const cae = res.data.cae
+      showToast(
+        cae
+          ? `Venta #${res.data.id} registrada — ${formatARS(Number(res.data.total))} — CAE: ${cae}`
+          : `Venta #${res.data.id} registrada — ${formatARS(Number(res.data.total))}`
+      )
       setCart([])
-      setPaymentMethod('EFECTIVO')
+      setPaymentMethod(CASH)
       setDiscount('')
       setNotes('')
+      setFacturaEfectivo(false)
       api.get<Product[]>('/products').then((r) => setProducts(r.data))
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -231,6 +247,28 @@ export default function RegisterVenta() {
             </div>
           </div>
 
+          {/* Factura */}
+          <div className="mt-4 rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3">
+            {paymentMethod !== CASH ? (
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-brand-400" />
+                <p className="text-xs font-medium text-brand-400">
+                  Se generara factura electronica automaticamente
+                </p>
+              </div>
+            ) : (
+              <label className="flex cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={facturaEfectivo}
+                  onChange={(e) => setFacturaEfectivo(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-600 accent-brand-500"
+                />
+                <span className="text-xs text-zinc-400">Generar factura electronica</span>
+              </label>
+            )}
+          </div>
+
           <input
             type="text"
             value={notes}
@@ -248,7 +286,7 @@ export default function RegisterVenta() {
       )}
 
       {cart.length === 0 && (
-        <p className="text-center text-sm text-zinc-600">Seleccioná un trago o producto para empezar</p>
+        <p className="text-center text-sm text-zinc-600">Selecciona un trago o producto para empezar</p>
       )}
     </div>
   )
