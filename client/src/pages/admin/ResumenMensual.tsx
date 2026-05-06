@@ -38,6 +38,7 @@ export default function ResumenMensual() {
   const [mes, setMes]           = useState(initMes)
   const [resumen, setResumen]   = useState<Resumen | null>(null)
   const [loading, setLoading]   = useState(false)
+  const [socios, setSocios]     = useState(3)
 
   // Nuevo gasto
   const [nombre, setNombre] = useState('')
@@ -124,6 +125,35 @@ export default function ResumenMensual() {
             <span className={`text-2xl font-black ${r.gananciaNeta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {formatARS(r.gananciaNeta)}
             </span>
+          </div>
+
+          {/* Division por socios */}
+          <div className="rounded-2xl border border-zinc-700 bg-zinc-900 px-5 py-4">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Division por socios</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500">Socios:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={socios}
+                  onChange={(e) => setSocios(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-14 rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1 text-center text-sm text-zinc-100 outline-none focus:border-brand-500"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-zinc-400">
+                  {formatARS(r.gananciaNeta)} &divide; {socios}
+                </p>
+                <p className="text-xs text-zinc-600 mt-0.5">por socio este mes</p>
+              </div>
+              <span className={`text-3xl font-black ${r.gananciaNeta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {formatARS(Math.round(r.gananciaNeta / socios))}
+              </span>
+            </div>
           </div>
 
           {/* Gastos del mes */}
