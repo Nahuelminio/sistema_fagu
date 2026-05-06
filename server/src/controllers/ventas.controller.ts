@@ -423,3 +423,56 @@ export async function getVentas(req: AuthRequest, res: Response): Promise<void> 
 
   res.json({ ventas, total, page: pageNum, pages: Math.ceil(total / limitNum), totalRevenue })
 }
+
+export async function exportVentasCSV(req: AuthRequest, res: Response): Promise<void> {
+  const { from, to } = req.query
+  const where: Record<string, unknown> = {}
+  if (from || to) {
+    where.createdAt = {
+      ...(from ? { gte: new Date(from as string) } : {}),
+      ...(to   ? { lte: new Date(to   as string) } : {}),
+    }
+  }
+
+  const ventas = await prisma.sale.findMany({
+    where,
+    include: {
+      items: {
+        include: {
+          product: { select: { name: true, unit: true } },
+          trago:   { select: { name: true } },
+        },
+      },
+      user: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  const rows: string[] = [
+    'Fecha,ID,Usuario,Metodo Pago,Items,Subtotal,Descuento,Total,CAE'
+  ]
+
+  for (const v of ventas) {
+    const items = v.items.map((i) => {
+      const nombre = i.nombre || i.product?.name || i.trago?.name || '?'
+      return `${nombre} x${Number(i.quantity)}`
+    }).join(' | ')
+
+    rows.push([
+      new Date(v.createdAt).toLocaleString('es-AR'),
+      v.id,
+      v.user.name,
+      v.paymentMethod,
+      `"${items}"`,
+      Number(v.subtotal),
+      Number(v.discount),
+      Number(v.total),
+      v.cae ?? '',
+    ].join(','))
+  }
+
+  const csv = rows.join('\n')
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename="ventas-${Date.now()}.csv"`)
+  res.send('﻿' + csv) // BOM para Excel
+}

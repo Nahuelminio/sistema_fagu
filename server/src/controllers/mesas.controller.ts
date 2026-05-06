@@ -144,11 +144,68 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
   const subtotal = comanda.items.reduce((s, i) => s + Number(i.quantity) * Number(i.unitPrice), 0)
   const total    = Math.max(0, subtotal - discount)
 
-  // Delegamos al endpoint de ventas internamente (reutilizamos la lógica)
-  const ventaItems = comanda.items.map((i) =>
-    i.tragoId ? { tragoId: i.tragoId, quantity: Number(i.quantity) }
-              : { productId: i.productId!, quantity: Number(i.quantity) }
-  )
+  // ── Validar stock antes de ejecutar ────────────────────────────────────
+  const productItems = comanda.items.filter((i) => i.productId)
+  const tragoItems   = comanda.items.filter((i) => i.tragoId)
+
+  // Validar productos directos
+  const directProducts = productItems.length
+    ? await prisma.product.findMany({ where: { id: { in: productItems.map((i) => i.productId!) } } })
+    : []
+
+  for (const item of productItems) {
+    const p = directProducts.find((p) => p.id === item.productId)!
+    if (Number(p.currentStock) < Number(item.quantity)) {
+      res.status(400).json({ error: `Stock insuficiente para "${p.name}"`, available: p.currentStock })
+      return
+    }
+  }
+
+  // Validar ingredientes de tragos
+  const tragoIds = [...new Set(tragoItems.map((i) => i.tragoId!))]
+  const tragos = tragoIds.length
+    ? await prisma.trago.findMany({
+        where: { id: { in: tragoIds } },
+        include: { ingredientes: { include: { product: true } } },
+      })
+    : []
+
+  const stockRequerido = new Map<number, number>()
+  for (const item of tragoItems) {
+    const t = tragos.find((t) => t.id === item.tragoId)!
+    for (const ing of t.ingredientes) {
+      const prev = stockRequerido.get(ing.productId) ?? 0
+      stockRequerido.set(ing.productId, prev + Number(ing.cantidad) * Number(item.quantity))
+    }
+  }
+
+  const ingredientIds = [...stockRequerido.keys()]
+  const botellas = ingredientIds.length
+    ? await prisma.botellaActiva.findMany({ where: { productId: { in: ingredientIds } } })
+    : []
+  const botellaMap = new Map(botellas.map((b) => [b.productId, b]))
+
+  const sinBotella = ingredientIds.filter((id) => !botellaMap.has(id))
+  const ingProducts = sinBotella.length
+    ? await prisma.product.findMany({ where: { id: { in: sinBotella } } })
+    : []
+
+  for (const [productId, requerido] of stockRequerido.entries()) {
+    const botella = botellaMap.get(productId)
+    if (botella) {
+      if (Number(botella.restante) < requerido) {
+        const name = tragos.flatMap((t) => t.ingredientes).find((i) => i.productId === productId)?.product.name ?? 'ingrediente'
+        res.status(400).json({ error: `Botella insuficiente para "${name}" (quedan ${Number(botella.restante).toFixed(1)} oz)` })
+        return
+      }
+    } else {
+      const p = ingProducts.find((p) => p.id === productId)
+      if (!p || Number(p.currentStock) < requerido) {
+        res.status(400).json({ error: `Stock insuficiente para "${p?.name ?? 'ingrediente'}"` })
+        return
+      }
+    }
+  }
 
   // Importar la lógica de createVenta sería complejo; llamamos directamente con prisma
   // Crear la venta y cerrar la comanda en una transacción
