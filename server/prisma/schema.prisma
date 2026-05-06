@@ -204,6 +204,14 @@ model OrdenCompra {
   items        OrdenItem[]
 }
 
+model GastoMensual {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  monto     Decimal  @db.Decimal(10, 2)
+  mes       String   // formato "YYYY-MM"
+  createdAt DateTime @default(now())
+}
+
 model OrdenItem {
   id          Int         @id @default(autoincrement())
   ordenId     Int

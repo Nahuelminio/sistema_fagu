@@ -7,6 +7,7 @@ const adminLinks = [
   { to: '/ventas',      label: 'Ventas'      },
   { to: '/ranking',     label: 'Ranking'     },
   { to: '/ordenes',     label: 'Compras'     },
+  { to: '/resumen',     label: 'Resumen'     },
   { to: '/tragos',      label: 'Tragos'      },
   { to: '/botellas',    label: 'Botellas'    },
   { to: '/productos',   label: 'Productos'   },
