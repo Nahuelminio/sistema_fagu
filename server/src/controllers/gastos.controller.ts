@@ -17,17 +17,17 @@ export async function getResumenMensual(req: AuthRequest, res: Response): Promis
   const from = new Date(year, month - 1, 1)
   const to   = new Date(year, month, 0, 23, 59, 59, 999)
 
-  const [ventas, compras, gastos] = await Promise.all([
+  const [ventas, saleItems, gastos] = await Promise.all([
     // Ventas del mes
     prisma.sale.findMany({
       where: { createdAt: { gte: from, lte: to } },
-      select: { total: true, subtotal: true, discount: true },
+      select: { total: true },
     }),
 
-    // Compras/ingresos del mes (costo mercadería)
-    prisma.stockMovement.findMany({
-      where: { type: 'INGRESO', createdAt: { gte: from, lte: to } },
-      select: { quantity: true, unitCost: true },
+    // Items vendidos ese mes
+    prisma.saleItem.findMany({
+      where: { sale: { createdAt: { gte: from, lte: to } } },
+      select: { productId: true, tragoId: true, quantity: true },
     }),
 
     // Gastos variables cargados para ese mes
@@ -37,10 +37,63 @@ export async function getResumenMensual(req: AuthRequest, res: Response): Promis
     }),
   ])
 
-  const totalVentas     = ventas.reduce((s, v) => s + Number(v.total), 0)
-  const cantVentas      = ventas.length
-  const costoMercaderia = compras.reduce((s, m) => s + Number(m.quantity) * Number(m.unitCost ?? 0), 0)
-  const totalGastos     = gastos.reduce((s, g) => s + Number(g.monto), 0)
+  // Cargar costos de productos y tragos vendidos
+  const productIds = [...new Set(saleItems.filter(i => i.productId).map(i => i.productId!))]
+  const tragoIds   = [...new Set(saleItems.filter(i => i.tragoId).map(i => i.tragoId!))]
+
+  const [products, tragos] = await Promise.all([
+    productIds.length
+      ? prisma.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, costPrice: true },
+        })
+      : [],
+    tragoIds.length
+      ? prisma.trago.findMany({
+          where: { id: { in: tragoIds } },
+          include: {
+            ingredientes: {
+              include: {
+                product: {
+                  select: {
+                    id: true, costPrice: true,
+                    botellaActiva: { select: { capacidad: true } },
+                  },
+                },
+              },
+            },
+          },
+        })
+      : [],
+  ])
+
+  const productMap = new Map(products.map(p => [p.id, p]))
+  const tragoMap   = new Map(tragos.map(t => [t.id, t]))
+
+  // Calcular costo de lo vendido (COGS)
+  let costoMercaderia = 0
+  for (const item of saleItems) {
+    const qty = Number(item.quantity)
+    if (item.productId) {
+      const p = productMap.get(item.productId)
+      costoMercaderia += Number(p?.costPrice ?? 0) * qty
+    } else if (item.tragoId) {
+      const t = tragoMap.get(item.tragoId)
+      if (t) {
+        const costoPorUnidad = t.ingredientes.reduce((sum, ing) => {
+          const precio    = Number(ing.product.costPrice ?? 0)
+          const capacidad = Number(ing.product.botellaActiva?.capacidad ?? 0)
+          const ozCost    = capacidad > 0 ? precio / capacidad : 0
+          return sum + Number(ing.cantidad) * ozCost
+        }, 0)
+        costoMercaderia += costoPorUnidad * qty
+      }
+    }
+  }
+
+  const totalVentas = ventas.reduce((s, v) => s + Number(v.total), 0)
+  const cantVentas  = ventas.length
+  const totalGastos = gastos.reduce((s, g) => s + Number(g.monto), 0)
   const gananciaBruta   = totalVentas - costoMercaderia
   const gananciaNeta    = gananciaBruta - totalGastos
 
