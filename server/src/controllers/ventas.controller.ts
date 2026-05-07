@@ -4,6 +4,7 @@ import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
 import { broadcastCatalogUpdate } from '../services/sse.service'
 import { emitirFactura, ClienteFactura } from '../services/arca.service'
+import { enviarFacturaEmail } from '../services/email.service'
 
 const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MERCADOPAGO', 'CUENTA_CORRIENTE'] as const
 
@@ -249,13 +250,17 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     { timeout: 20000 }
   )
 
-  // Facturación electrónica ARCA
+  // Facturación electrónica ARCA + envío de email
   try {
-    let clienteData: ClienteFactura | null = null
+    let clienteData: (ClienteFactura & { email?: string | null }) | null = null
     if (clienteId) {
-      const c = await prisma.cliente.findUnique({ where: { id: clienteId }, select: { nombre: true, cuit: true, dni: true } })
+      const c = await prisma.cliente.findUnique({
+        where: { id: clienteId },
+        select: { nombre: true, cuit: true, dni: true, email: true },
+      })
       clienteData = c ?? null
     }
+
     const factura = debeFacturar ? await emitirFactura(total, clienteData) : null
     if (factura) {
       await prisma.sale.update({
@@ -270,9 +275,27 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
       ;(sale as any).cae        = factura.cae
       ;(sale as any).nroFactura = factura.nroFactura
     }
+
+    // Enviar factura por email si el cliente tiene email
+    if (clienteData?.email && (factura || debeFacturar)) {
+      await enviarFacturaEmail({
+        clienteNombre: clienteData.nombre,
+        clienteEmail:  clienteData.email,
+        saleId:        sale.id,
+        total,
+        items: sale.items.map((i) => ({
+          nombre:    i.nombre || (i as any).product?.name || (i as any).trago?.name || '?',
+          quantity:  Number(i.quantity),
+          unitPrice: Number(i.unitPrice),
+        })),
+        paymentMethod: paymentMethod,
+        cae:           factura?.cae ?? null,
+        nroFactura:    factura?.nroFactura ?? null,
+        fecha:         new Date(),
+      })
+    }
   } catch (err) {
-    // No bloquea la venta si ARCA falla — se puede reintentar después
-    console.error('[ARCA] Error al emitir factura:', err)
+    console.error('[ARCA/Email] Error:', err)
   }
 
   broadcastCatalogUpdate()
