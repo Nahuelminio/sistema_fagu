@@ -84,7 +84,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Stats row ────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Hoy</p>
           <p className="mt-1 text-2xl font-bold text-zinc-100">{todayData.count}</p>
@@ -96,6 +96,9 @@ export default function Dashboard() {
           <p className="text-xs text-zinc-500">{data.lowStockProducts.length > 0 ? `${data.lowStockProducts.length} bajo stock` : 'stock OK'}</p>
         </div>
       </div>
+
+      {/* ── Gráfico + top productos (side by side en desktop) ─────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
       {/* ── Gráfico semanal ───────────────────────────────────────────────── */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
@@ -156,6 +159,8 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      </div>{/* end grid grafico+top */}
 
       {/* ── Métodos de pago ───────────────────────────────────────────────── */}
       {paymentBreakdown.length > 0 && (

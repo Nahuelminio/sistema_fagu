@@ -105,7 +105,7 @@ export default function ResumenMensual() {
           <p className="text-sm font-medium capitalize text-zinc-400">{mesLabel(mes)}</p>
 
           {/* Tarjetas principales */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card label="Ventas del mes" value={formatARS(r.totalVentas)} sub={`${r.cantVentas} transacciones`} color="brand" />
             <Card label="Costo mercaderia" value={formatARS(r.costoMercaderia)} sub="compras del mes" color="zinc" />
             <Card label="Ganancia bruta" value={formatARS(r.gananciaBruta)} sub="ventas - mercaderia" color={r.gananciaBruta >= 0 ? 'green' : 'red'} />
@@ -155,6 +155,9 @@ export default function ResumenMensual() {
               </span>
             </div>
           </div>
+
+          {/* Gastos + Desglose — side by side en desktop */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* Gastos del mes */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
@@ -236,6 +239,8 @@ export default function ResumenMensual() {
               <Row label="Ganancia neta"           value={formatARS(r.gananciaNeta)}    color={r.gananciaNeta >= 0 ? 'text-green-400 font-bold' : 'text-red-400 font-bold'} />
             </div>
           </div>
+
+          </div>{/* end grid gastos+desglose */}
         </>
       )}
     </div>

@@ -23,7 +23,7 @@ export default function StockView() {
       </div>
       <Input placeholder="Buscar producto..." value={search} onChange={(e) => setSearch(e.target.value)} />
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {filtered.map((p) => {
           const low = Number(p.currentStock) <= Number(p.minStock)
           return (

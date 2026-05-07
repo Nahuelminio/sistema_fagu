@@ -197,7 +197,7 @@ export default function Products() {
             </div>
             <Input label="Unidad" placeholder="unidades, litros, kg..." value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
             <Input label="Stock mínimo" type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <Input label="Precio costo" type="number" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} />
               <Input label="Precio venta" type="number" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: e.target.value })} />
             </div>
