@@ -20,6 +20,7 @@ import ProductHistory from './pages/admin/ProductHistory'
 import Mesas from './pages/admin/Mesas'
 import Ordenes from './pages/admin/Ordenes'
 import ResumenMensual from './pages/admin/ResumenMensual'
+import Clientes from './pages/admin/Clientes'
 
 import StockView from './pages/user/StockView'
 import RegisterSalida from './pages/user/RegisterSalida'
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/mesas" element={<Mesas />} />
             <Route path="/ordenes" element={<Ordenes />} />
             <Route path="/resumen" element={<ResumenMensual />} />
+            <Route path="/clientes" element={<Clientes />} />
             <Route path="/usuarios" element={<Users />} />
           </Route>
 

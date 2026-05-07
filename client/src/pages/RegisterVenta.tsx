@@ -4,6 +4,8 @@ import { Product, Trago, PaymentMethod, PAYMENT_LABELS } from '../types'
 import Button from '../components/ui/Button'
 import { useToast } from '../context/ToastContext'
 
+interface Cliente { id: number; nombre: string; cuit?: string | null; dni?: string | null }
+
 // ── Tipos del carrito ──────────────────────────────────────────────────────
 interface CartItem {
   type: 'product' | 'trago'
@@ -35,11 +37,23 @@ export default function RegisterVenta() {
   const [facturaEfectivo, setFacturaEfectivo] = useState(false)
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
+  const [clientes, setClientes]     = useState<Cliente[]>([])
+  const [clienteId, setClienteId]   = useState<number | null>(null)
+  const [clienteSearch, setClienteSearch] = useState('')
+  const [showClienteList, setShowClienteList] = useState(false)
 
   useEffect(() => {
     api.get<Product[]>('/products').then((r) => setProducts(r.data))
     api.get<Trago[]>('/tragos').then((r) => setTragos(r.data))
+    api.get<Cliente[]>('/clientes').then((r) => setClientes(r.data)).catch(() => {})
   }, [])
+
+  const clienteSeleccionado = clientes.find((c) => c.id === clienteId) ?? null
+  const clientesFiltrados   = clientes.filter((c) =>
+    c.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) ||
+    (c.cuit ?? '').includes(clienteSearch) ||
+    (c.dni  ?? '').includes(clienteSearch)
+  )
 
   // No-efectivo siempre genera factura; efectivo solo si el checkbox está activo
   const generarFactura = paymentMethod !== CASH || facturaEfectivo
@@ -102,6 +116,7 @@ export default function RegisterVenta() {
         discount: discountAmt,
         notes: notes || undefined,
         generarFactura,
+        clienteId: clienteId ?? undefined,
       })
       const cae = res.data.cae
       showToast(
@@ -114,6 +129,8 @@ export default function RegisterVenta() {
       setDiscount('')
       setNotes('')
       setFacturaEfectivo(false)
+      setClienteId(null)
+      setClienteSearch('')
       api.get<Product[]>('/products').then((r) => setProducts(r.data))
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -245,6 +262,54 @@ export default function RegisterVenta() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Cliente para factura */}
+          <div className="mt-4 rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">Cliente (opcional)</p>
+            {clienteSeleccionado ? (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-zinc-100">{clienteSeleccionado.nombre}</p>
+                  <p className="text-xs text-zinc-500">
+                    {clienteSeleccionado.cuit ? `CUIT: ${clienteSeleccionado.cuit}` : clienteSeleccionado.dni ? `DNI: ${clienteSeleccionado.dni}` : 'Sin documento'}
+                  </p>
+                </div>
+                <button onClick={() => setClienteId(null)} className="text-xs text-zinc-600 hover:text-red-400 transition">
+                  Quitar
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Buscar cliente..."
+                  value={clienteSearch}
+                  onChange={(e) => { setClienteSearch(e.target.value); setShowClienteList(true) }}
+                  onFocus={() => setShowClienteList(true)}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-brand-500"
+                />
+                {showClienteList && clienteSearch && clientesFiltrados.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl overflow-hidden">
+                    {clientesFiltrados.slice(0, 6).map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => { setClienteId(c.id); setClienteSearch(''); setShowClienteList(false) }}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-zinc-800 transition border-b border-zinc-800 last:border-0"
+                      >
+                        <span className="font-medium text-zinc-100">{c.nombre}</span>
+                        {(c.cuit || c.dni) && (
+                          <span className="ml-2 text-xs text-zinc-500">
+                            {c.cuit ? `CUIT: ${c.cuit}` : `DNI: ${c.dni}`}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Factura */}

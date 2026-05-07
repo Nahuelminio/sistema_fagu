@@ -82,6 +82,8 @@ model Sale {
   id             Int           @id @default(autoincrement())
   userId         Int
   user           User          @relation(fields: [userId], references: [id])
+  clienteId      Int?
+  cliente        Cliente?      @relation(fields: [clienteId], references: [id])
   subtotal       Decimal       @db.Decimal(10, 2) @default(0)
   discount       Decimal       @db.Decimal(10, 2) @default(0)
   total          Decimal       @db.Decimal(10, 2)
@@ -202,6 +204,19 @@ model OrdenCompra {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   items        OrdenItem[]
+}
+
+model Cliente {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  cuit      String?  // CUIT para Responsable Inscripto / Monotributista
+  dni       String?  // DNI para Consumidor Final con datos
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sales     Sale[]
 }
 
 model GastoMensual {

@@ -41,6 +41,12 @@ async function getAfip() {
   return afipInstance
 }
 
+export interface ClienteFactura {
+  nombre: string
+  cuit?:  string | null
+  dni?:   string | null
+}
+
 export interface FacturaResult {
   cae:            string
   caeVencimiento: Date
@@ -48,7 +54,7 @@ export interface FacturaResult {
   puntoVenta:     number
 }
 
-export async function emitirFactura(total: number): Promise<FacturaResult | null> {
+export async function emitirFactura(total: number, cliente?: ClienteFactura | null): Promise<FacturaResult | null> {
   const afip = await getAfip() as any
   if (!afip) {
     console.log('[ARCA] Facturación deshabilitada (ARCA_ENABLED=false)')
@@ -62,13 +68,25 @@ export async function emitirFactura(total: number): Promise<FacturaResult | null
 
   const fecha = new Date().toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
 
+  // Determinar tipo y nro de documento del receptor
+  let docTipo = 99  // 99 = Consumidor Final
+  let docNro  = 0
+
+  if (cliente?.cuit) {
+    docTipo = 80  // 80 = CUIT
+    docNro  = parseInt(cliente.cuit.replace(/\D/g, ''))
+  } else if (cliente?.dni) {
+    docTipo = 96  // 96 = DNI
+    docNro  = parseInt(cliente.dni.replace(/\D/g, ''))
+  }
+
   const data = {
     CantReg:    1,
     PtoVta:     puntoVenta,
     CbteTipo:   CBTE_TIPO,
-    Concepto:   1,       // 1 = Productos
-    DocTipo:    99,      // 99 = Consumidor Final
-    DocNro:     0,
+    Concepto:   1,
+    DocTipo:    docTipo,
+    DocNro:     docNro,
     CbteDesde:  nextNumber,
     CbteHasta:  nextNumber,
     CbteFch:    fecha,
@@ -80,7 +98,7 @@ export async function emitirFactura(total: number): Promise<FacturaResult | null
     ImpTrib:    0,
     MonId:      'PES',
     MonCotiz:   1,
-    Iva: [{ Id: 3, BaseImp: total, Importe: 0 }], // IVA 0% (monotributo)
+    Iva: [{ Id: 3, BaseImp: total, Importe: 0 }],
   }
 
   const result = await afip.ElectronicBilling.createVoucher(data)

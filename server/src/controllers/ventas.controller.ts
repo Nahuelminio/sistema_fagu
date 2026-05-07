@@ -3,7 +3,7 @@ import { z } from 'zod'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
 import { broadcastCatalogUpdate } from '../services/sse.service'
-import { emitirFactura } from '../services/arca.service'
+import { emitirFactura, ClienteFactura } from '../services/arca.service'
 
 const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MERCADOPAGO', 'CUENTA_CORRIENTE'] as const
 
@@ -20,6 +20,7 @@ const ventaSchema = z.object({
   discount: z.number().min(0).default(0),
   notes: z.string().optional(),
   generarFactura: z.boolean().optional(),
+  clienteId: z.number().int().positive().optional(),
 })
 
 export async function createVenta(req: AuthRequest, res: Response): Promise<void> {
@@ -29,7 +30,7 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     return
   }
 
-  const { items, paymentMethod, discount, notes, generarFactura } = parsed.data
+  const { items, paymentMethod, discount, notes, generarFactura, clienteId } = parsed.data
 
   // No-efectivo → factura obligatoria. Efectivo → solo si el usuario lo pide.
   const debeFacturar = paymentMethod !== 'EFECTIVO' || generarFactura === true
@@ -141,6 +142,7 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
       const newSale = await tx.sale.create({
         data: {
           userId: req.user!.userId,
+          clienteId: clienteId ?? null,
           subtotal,
           discount,
           total,
@@ -249,7 +251,12 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
 
   // Facturación electrónica ARCA
   try {
-    const factura = debeFacturar ? await emitirFactura(total) : null
+    let clienteData: ClienteFactura | null = null
+    if (clienteId) {
+      const c = await prisma.cliente.findUnique({ where: { id: clienteId }, select: { nombre: true, cuit: true, dni: true } })
+      clienteData = c ?? null
+    }
+    const factura = debeFacturar ? await emitirFactura(total, clienteData) : null
     if (factura) {
       await prisma.sale.update({
         where: { id: sale.id },

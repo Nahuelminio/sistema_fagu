@@ -12,6 +12,7 @@ const adminLinks = [
   { to: '/botellas',    label: 'Botellas'    },
   { to: '/productos',   label: 'Productos'   },
   { to: '/movimientos', label: 'Movimientos' },
+  { to: '/clientes',    label: 'Clientes'    },
   { to: '/usuarios',    label: 'Usuarios'    },
 ]
 
