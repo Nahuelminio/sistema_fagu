@@ -11,12 +11,14 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@afipsdk/afip.js": "^1.2.3",
     "@prisma/client": "^5.10.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "express": "^4.18.3",
     "dotenv": "^16.4.1",
+    "express": "^4.18.3",
     "jsonwebtoken": "^9.0.2",
+    "resend": "^6.12.3",
     "tsx": "^4.7.0",
     "zod": "^3.22.4"
   },
