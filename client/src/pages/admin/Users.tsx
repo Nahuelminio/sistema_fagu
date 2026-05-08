@@ -20,8 +20,12 @@ export default function Users() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await api.get<User[]>('/users')
-    setUsers(data)
+    try {
+      const { data } = await api.get<User[]>('/users')
+      setUsers(data)
+    } catch {
+      showToast('Error al cargar usuarios', 'error')
+    }
   }
 
   async function handleCreate() {

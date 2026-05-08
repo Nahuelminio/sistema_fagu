@@ -107,7 +107,7 @@ export default function ResumenMensual() {
           {/* Tarjetas principales */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card label="Ventas del mes" value={formatARS(r.totalVentas)} sub={`${r.cantVentas} transacciones`} color="brand" />
-            <Card label="Costo mercaderia" value={formatARS(r.costoMercaderia)} sub="compras del mes" color="zinc" />
+            <Card label="Costo mercaderia" value={formatARS(r.costoMercaderia)} sub="costo de lo vendido" color="zinc" />
             <Card label="Ganancia bruta" value={formatARS(r.gananciaBruta)} sub="ventas - mercaderia" color={r.gananciaBruta >= 0 ? 'green' : 'red'} />
             <Card label="Total gastos" value={formatARS(r.totalGastos)} sub={`${r.gastos.length} gastos cargados`} color="orange" />
           </div>

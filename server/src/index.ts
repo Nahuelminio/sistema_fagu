@@ -3,6 +3,12 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 
+// Validate required env vars at startup
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set')
+  process.exit(1)
+}
+
 import authRoutes from './routes/auth.routes'
 import productRoutes from './routes/products.routes'
 import movementRoutes from './routes/movements.routes'
@@ -22,24 +28,28 @@ import { errorHandler } from './middlewares/error.middleware'
 const app = express()
 const isProd = process.env.NODE_ENV === 'production'
 
-app.use(cors({ origin: isProd ? '*' : (process.env.CLIENT_URL ?? '*') }))
-app.use(express.json())
+// CORS: use explicit origin in production if set, otherwise allow all for dev
+const corsOrigin = process.env.CORS_ORIGIN ?? (isProd ? false : '*')
+app.use(cors({ origin: corsOrigin }))
+
+// Limit request body to 1 MB to prevent abuse
+app.use(express.json({ limit: '1mb' }))
 
 // API routes
-app.use('/api/auth', authRoutes)
-app.use('/api/products', productRoutes)
-app.use('/api/movements', movementRoutes)
-app.use('/api/catalogo', catalogRoutes)
-app.use('/api/dashboard', dashboardRoutes)
-app.use('/api/users', userRoutes)
+app.use('/api/auth',       authRoutes)
+app.use('/api/products',   productRoutes)
+app.use('/api/movements',  movementRoutes)
+app.use('/api/catalogo',   catalogRoutes)
+app.use('/api/dashboard',  dashboardRoutes)
+app.use('/api/users',      userRoutes)
 app.use('/api/categories', categoryRoutes)
-app.use('/api/ventas', ventasRoutes)
-app.use('/api/tragos', tragosRoutes)
-app.use('/api/botellas', botellasRoutes)
-app.use('/api/mesas', mesasRoutes)
-app.use('/api/ordenes', ordenesRoutes)
-app.use('/api/gastos',   gastosRoutes)
-app.use('/api/clientes', clientesRoutes)
+app.use('/api/ventas',     ventasRoutes)
+app.use('/api/tragos',     tragosRoutes)
+app.use('/api/botellas',   botellasRoutes)
+app.use('/api/mesas',      mesasRoutes)
+app.use('/api/ordenes',    ordenesRoutes)
+app.use('/api/gastos',     gastosRoutes)
+app.use('/api/clientes',   clientesRoutes)
 
 app.use(errorHandler)
 

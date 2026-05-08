@@ -32,8 +32,12 @@ export default function Products() {
   }, [])
 
   async function load() {
-    const { data } = await api.get<Product[]>('/products')
-    setProducts(data)
+    try {
+      const { data } = await api.get<Product[]>('/products')
+      setProducts(data)
+    } catch {
+      showToast('Error al cargar productos', 'error')
+    }
   }
 
   function openCreate() {

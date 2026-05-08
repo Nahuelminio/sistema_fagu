@@ -113,26 +113,38 @@ export default function Ordenes() {
   }
 
   async function handleRecibir(id: number) {
-    await api.post(`/ordenes/${id}/recibir`, {})
-    showToast(`Orden #${id} marcada como recibida`)
-    load()
+    try {
+      await api.post(`/ordenes/${id}/recibir`, {})
+      showToast(`Orden #${id} marcada como recibida`)
+      load()
+    } catch (err: any) {
+      showToast(err?.response?.data?.error ?? 'Error al recibir la orden', 'error')
+    }
   }
 
   async function handleCancelar(id: number) {
     if (!confirm('¿Cancelar esta orden?')) return
-    await api.post(`/ordenes/${id}/cancelar`, {})
-    showToast(`Orden #${id} cancelada`, 'info')
-    load()
+    try {
+      await api.post(`/ordenes/${id}/cancelar`, {})
+      showToast(`Orden #${id} cancelada`, 'info')
+      load()
+    } catch (err: any) {
+      showToast(err?.response?.data?.error ?? 'Error al cancelar la orden', 'error')
+    }
   }
 
   async function handleCreateProveedor() {
     if (!newProvName) return
-    const res = await api.post<Proveedor>('/ordenes/proveedores', { name: newProvName, phone: newProvPhone || undefined })
-    setProveedores((prev) => [...prev, res.data])
-    setProveedorId(String(res.data.id))
-    setNewProvName('')
-    setNewProvPhone('')
-    setShowNewProv(false)
+    try {
+      const res = await api.post<Proveedor>('/ordenes/proveedores', { name: newProvName, phone: newProvPhone || undefined })
+      setProveedores((prev) => [...prev, res.data])
+      setProveedorId(String(res.data.id))
+      setNewProvName('')
+      setNewProvPhone('')
+      setShowNewProv(false)
+    } catch (err: any) {
+      showToast(err?.response?.data?.error ?? 'Error al crear proveedor', 'error')
+    }
   }
 
   // ── Vista: lista ─────────────────────────────────────────────────────────────

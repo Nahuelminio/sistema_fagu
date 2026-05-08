@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { z } from 'zod'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
+import { parseId } from '../utils/asyncHandler'
 
 const gastoSchema = z.object({
   nombre: z.string().min(1),
@@ -12,6 +13,12 @@ const gastoSchema = z.object({
 // ── GET /gastos/resumen?mes=YYYY-MM ──────────────────────────────────────────
 export async function getResumenMensual(req: AuthRequest, res: Response): Promise<void> {
   const mes = (req.query.mes as string) ?? new Date().toISOString().slice(0, 7)
+
+  // Validate mes format
+  if (!/^\d{4}-\d{2}$/.test(mes)) {
+    res.status(400).json({ error: 'Formato de mes inválido. Use YYYY-MM' })
+    return
+  }
 
   const [year, month] = mes.split('-').map(Number)
   const from = new Date(year, month - 1, 1)
@@ -113,7 +120,7 @@ export async function getResumenMensual(req: AuthRequest, res: Response): Promis
 export async function createGasto(req: AuthRequest, res: Response): Promise<void> {
   const parsed = gastoSchema.safeParse(req.body)
   if (!parsed.success) {
-    res.status(400).json({ error: 'Datos invalidos', details: parsed.error.flatten() })
+    res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() })
     return
   }
   const gasto = await prisma.gastoMensual.create({ data: parsed.data })
@@ -122,7 +129,14 @@ export async function createGasto(req: AuthRequest, res: Response): Promise<void
 
 // ── DELETE /gastos/:id ────────────────────────────────────────────────────────
 export async function deleteGasto(req: AuthRequest, res: Response): Promise<void> {
-  const id = parseInt(req.params.id)
-  await prisma.gastoMensual.delete({ where: { id } })
-  res.json({ ok: true })
+  const id = parseId(req.params.id)
+  if (!id) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  try {
+    await prisma.gastoMensual.delete({ where: { id } })
+    res.json({ ok: true })
+  } catch (e: any) {
+    if (e.code === 'P2025') { res.status(404).json({ error: 'Gasto no encontrado' }); return }
+    throw e
+  }
 }

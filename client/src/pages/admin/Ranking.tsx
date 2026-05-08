@@ -107,7 +107,7 @@ export default function Ranking() {
             const barWidth = Math.round((item.revenue / maxRevenue) * 100)
             const hasCost  = item.cost > 0
             return (
-              <div key={item.nombre} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+              <div key={item.tragoId ? `t_${item.tragoId}` : `p_${item.productId}`} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span className="text-zinc-500 text-sm font-mono w-5 shrink-0">#{i + 1}</span>

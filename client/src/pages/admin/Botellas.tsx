@@ -108,13 +108,18 @@ export default function Botellas() {
 
   async function load() {
     setLoading(true)
-    const [bRes, pRes] = await Promise.all([
-      api.get<BotellaActiva[]>('/botellas'),
-      api.get<Product[]>('/products'),
-    ])
-    setBotellas(bRes.data)
-    setProducts(pRes.data)
-    setLoading(false)
+    try {
+      const [bRes, pRes] = await Promise.all([
+        api.get<BotellaActiva[]>('/botellas'),
+        api.get<Product[]>('/products'),
+      ])
+      setBotellas(bRes.data)
+      setProducts(pRes.data)
+    } catch {
+      showToast('Error al cargar botellas', 'error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])

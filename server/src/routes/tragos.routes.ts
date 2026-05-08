@@ -2,13 +2,14 @@ import { Router } from 'express'
 import { getTragos, createTrago, updateTrago, deleteTrago } from '../controllers/tragos.controller'
 import { authenticate } from '../middlewares/auth.middleware'
 import { requireAdmin } from '../middlewares/role.middleware'
+import { asyncHandler } from '../utils/asyncHandler'
 
 const router = Router()
 
 router.use(authenticate)
-router.get('/', getTragos)
-router.post('/', requireAdmin, createTrago)
-router.put('/:id', requireAdmin, updateTrago)
-router.delete('/:id', requireAdmin, deleteTrago)
+router.get('/',       asyncHandler(getTragos))
+router.post('/',      requireAdmin, asyncHandler(createTrago))
+router.put('/:id',    requireAdmin, asyncHandler(updateTrago))
+router.delete('/:id', requireAdmin, asyncHandler(deleteTrago))
 
 export default router

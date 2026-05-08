@@ -28,12 +28,20 @@ export default function Tragos() {
   useEffect(() => { load(); loadProducts() }, [])
 
   async function load() {
-    const { data } = await api.get<Trago[]>('/tragos')
-    setTragos(data)
+    try {
+      const { data } = await api.get<Trago[]>('/tragos')
+      setTragos(data)
+    } catch {
+      showToast('Error al cargar tragos', 'error')
+    }
   }
   async function loadProducts() {
-    const { data } = await api.get<Product[]>('/products')
-    setProducts(data)
+    try {
+      const { data } = await api.get<Product[]>('/products')
+      setProducts(data)
+    } catch {
+      showToast('Error al cargar productos', 'error')
+    }
   }
 
   function openCreate() {
@@ -77,6 +85,8 @@ export default function Tragos() {
       }
       setShowForm(false)
       load()
+    } catch (err: any) {
+      showToast(err?.response?.data?.error ?? 'Error al guardar el trago', 'error')
     } finally {
       setSaving(false)
     }
@@ -84,9 +94,13 @@ export default function Tragos() {
 
   async function handleDelete(id: number) {
     if (!confirm('¿Eliminar este trago?')) return
-    await api.delete(`/tragos/${id}`)
-    showToast('Trago eliminado', 'info')
-    load()
+    try {
+      await api.delete(`/tragos/${id}`)
+      showToast('Trago eliminado', 'info')
+      load()
+    } catch (err: any) {
+      showToast(err?.response?.data?.error ?? 'Error al eliminar el trago', 'error')
+    }
   }
 
   return (

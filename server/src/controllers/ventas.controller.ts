@@ -427,8 +427,8 @@ export async function getVentas(req: AuthRequest, res: Response): Promise<void> 
     }
   }
 
-  const pageNum = parseInt(page as string)
-  const limitNum = parseInt(limit as string)
+  const pageNum  = Math.max(1, parseInt(page as string) || 1)
+  const limitNum = Math.min(200, Math.max(1, parseInt(limit as string) || 50))
 
   const [ventas, total] = await prisma.$transaction([
     prisma.sale.findMany({

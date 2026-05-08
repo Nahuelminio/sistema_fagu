@@ -45,7 +45,7 @@ export default function Dashboard() {
     api.get<DashData>('/dashboard')
       .then((r) => setData(r.data))
       .catch((e) => setError(e?.response?.data?.error ?? e?.message ?? 'Error al cargar'))
-    api.get<BotellaActiva[]>('/botellas').then((r) => setBotellas(r.data)).catch(() => {})
+    api.get<BotellaActiva[]>('/botellas').then((r) => setBotellas(r.data)).catch(() => { /* botellas no críticas */ })
   }, [])
 
   if (error) return (
@@ -62,7 +62,7 @@ export default function Dashboard() {
   const weekSales        = data.weekSales        ?? []
   const topItems         = data.topItems         ?? []
   const paymentBreakdown = data.paymentBreakdown ?? []
-  const todayData        = data.today            ?? { count: (data as any).todayVentas ?? 0, revenue: 0 }
+  const todayData        = data.today            ?? { count: 0, revenue: 0 }
 
   const maxWeekRevenue = Math.max(...weekSales.map((d) => d.revenue), 1)
   const lowBotellas    = botellas.filter(b => Number(b.restante) <= Number(b.alertaOz))

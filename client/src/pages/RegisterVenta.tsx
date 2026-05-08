@@ -70,14 +70,16 @@ export default function RegisterVenta() {
     if (!selectedId || !qty || qty <= 0) return
 
     if (tab === 'product') {
-      const p = products.find((p) => p.id === parseInt(selectedId))!
+      const p = products.find((p) => p.id === parseInt(selectedId))
+      if (!p) return
       setCart((prev) => {
         const ex = prev.find((i) => i.type === 'product' && i.id === p.id)
         if (ex) return prev.map((i) => i.type === 'product' && i.id === p.id ? { ...i, quantity: i.quantity + qty } : i)
         return [...prev, { type: 'product', id: p.id, name: p.name, unit: p.unit, salePrice: Number(p.salePrice ?? 0), quantity: qty }]
       })
     } else {
-      const t = tragos.find((t) => t.id === parseInt(selectedId))!
+      const t = tragos.find((t) => t.id === parseInt(selectedId))
+      if (!t) return
       setCart((prev) => {
         const ex = prev.find((i) => i.type === 'trago' && i.id === t.id)
         if (ex) return prev.map((i) => i.type === 'trago' && i.id === t.id ? { ...i, quantity: i.quantity + qty } : i)

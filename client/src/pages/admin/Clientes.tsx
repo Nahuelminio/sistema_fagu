@@ -27,8 +27,12 @@ export default function Clientes() {
   const [form, setForm] = useState(empty)
 
   async function load() {
-    const r = await api.get<Cliente[]>('/clientes')
-    setClientes(r.data)
+    try {
+      const r = await api.get<Cliente[]>('/clientes')
+      setClientes(r.data)
+    } catch {
+      showToast('Error al cargar clientes', 'error')
+    }
   }
 
   useEffect(() => { load() }, [])

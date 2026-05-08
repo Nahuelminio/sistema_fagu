@@ -5,21 +5,22 @@ import {
 } from '../controllers/ordenes.controller'
 import { authenticate } from '../middlewares/auth.middleware'
 import { requireAdmin } from '../middlewares/role.middleware'
+import { asyncHandler } from '../utils/asyncHandler'
 
 const router = Router()
 router.use(authenticate, requireAdmin)
 
 // Proveedores
-router.get('/proveedores',      getProveedores)
-router.post('/proveedores',     createProveedor)
-router.put('/proveedores/:id',  updateProveedor)
-router.delete('/proveedores/:id', deleteProveedor)
+router.get('/proveedores',          asyncHandler(getProveedores))
+router.post('/proveedores',         asyncHandler(createProveedor))
+router.put('/proveedores/:id',      asyncHandler(updateProveedor))
+router.delete('/proveedores/:id',   asyncHandler(deleteProveedor))
 
 // Órdenes
-router.get('/',           getOrdenes)
-router.get('/:id',        getOrden)
-router.post('/',          createOrden)
-router.post('/:id/recibir',  recibirOrden)
-router.post('/:id/cancelar', cancelarOrden)
+router.get('/',              asyncHandler(getOrdenes))
+router.get('/:id',           asyncHandler(getOrden))
+router.post('/',             asyncHandler(createOrden))
+router.post('/:id/recibir',  asyncHandler(recibirOrden))
+router.post('/:id/cancelar', asyncHandler(cancelarOrden))
 
 export default router

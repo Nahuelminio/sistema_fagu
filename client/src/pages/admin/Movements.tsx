@@ -23,13 +23,17 @@ export default function Movements() {
   useEffect(() => { load() }, [page, filters])
 
   async function load() {
-    const params = new URLSearchParams({ page: String(page), limit: '20' })
-    if (filters.productId) params.set('productId', filters.productId)
-    if (filters.from) params.set('from', filters.from)
-    if (filters.to) params.set('to', filters.to)
-    if (filters.type) params.set('type', filters.type)
-    const { data: res } = await api.get<MovementsResponse>(`/movements?${params}`)
-    setData(res)
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: '20' })
+      if (filters.productId) params.set('productId', filters.productId)
+      if (filters.from) params.set('from', filters.from)
+      if (filters.to) params.set('to', filters.to)
+      if (filters.type) params.set('type', filters.type)
+      const { data: res } = await api.get<MovementsResponse>(`/movements?${params}`)
+      setData(res)
+    } catch {
+      showToast('Error al cargar movimientos', 'error')
+    }
   }
 
   async function handleIngreso() {
