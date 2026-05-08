@@ -20,19 +20,32 @@ function formatDate(iso: string) {
 
 function VentaCard({ venta }: { venta: Sale }) {
   const [open, setOpen] = useState(false)
+  const hasFactura = !!venta.cae
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900">
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
-        <div>
-          <p className="text-sm font-semibold text-zinc-100">Venta #{venta.id}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-zinc-100">Venta #{venta.id}</p>
+            {venta.cliente && (
+              <span className="rounded-full bg-zinc-800 border border-zinc-700 px-2 py-0.5 text-xs text-zinc-300">
+                {venta.cliente.nombre}
+              </span>
+            )}
+            {hasFactura && (
+              <span className="rounded-full bg-brand-500/10 border border-brand-500/30 px-2 py-0.5 text-xs text-brand-400 font-medium">
+                Facturada
+              </span>
+            )}
+          </div>
           <p className="text-xs text-zinc-500">
             {formatDate(venta.createdAt)} · {venta.user.name}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-2 shrink-0">
           <Badge label={PAYMENT_LABELS[venta.paymentMethod as PaymentMethod]} color="gray" />
           <span className="font-semibold text-brand-400">{formatARS(Number(venta.total))}</span>
           <span className="text-xs text-zinc-600">{open ? '▲' : '▼'}</span>
@@ -40,7 +53,7 @@ function VentaCard({ venta }: { venta: Sale }) {
       </button>
 
       {open && (
-        <div className="border-t border-zinc-800 px-4 pb-3">
+        <div className="border-t border-zinc-800 px-4 pb-3 pt-2">
           {venta.notes && (
             <p className="mb-2 text-xs italic text-zinc-500">"{venta.notes}"</p>
           )}
@@ -56,6 +69,35 @@ function VentaCard({ venta }: { venta: Sale }) {
               </div>
             ))}
           </div>
+
+          {/* Datos de factura */}
+          {hasFactura && (
+            <div className="mt-3 rounded-xl border border-brand-500/20 bg-brand-500/5 px-3 py-2 flex flex-col gap-0.5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-brand-400">Factura electronica</p>
+              {venta.nroFactura != null && (
+                <p className="text-xs text-zinc-400">
+                  Comprobante:{' '}
+                  <span className="font-mono text-zinc-200">
+                    {String(venta.puntoVenta ?? 1).padStart(4, '0')}-{String(venta.nroFactura).padStart(8, '0')}
+                  </span>
+                </p>
+              )}
+              <p className="text-xs text-zinc-400">
+                CAE: <span className="font-mono text-zinc-300">{venta.cae}</span>
+              </p>
+              {venta.cliente && (
+                <p className="text-xs text-zinc-400">
+                  Cliente:{' '}
+                  <span className="text-zinc-200">{venta.cliente.nombre}</span>
+                  {(venta.cliente.cuit || venta.cliente.dni) && (
+                    <span className="text-zinc-500 ml-1">
+                      ({venta.cliente.cuit ? `CUIT ${venta.cliente.cuit}` : `DNI ${venta.cliente.dni}`})
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

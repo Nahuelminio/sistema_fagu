@@ -441,6 +441,7 @@ export async function getVentas(req: AuthRequest, res: Response): Promise<void> 
           },
         },
         user: { select: { id: true, name: true } },
+        cliente: { select: { id: true, nombre: true, cuit: true, dni: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (pageNum - 1) * limitNum,
