@@ -26,12 +26,17 @@ export default function CierreCaja() {
 
   async function load(d: string) {
     setLoading(true)
-    const r = await api.get<CierreData>(`/dashboard/cierre?date=${d}`)
-    setData(r.data)
-    setLoading(false)
+    try {
+      const r = await api.get<CierreData>(`/dashboard/cierre?date=${d}`)
+      setData(r.data)
+    } catch {
+      // el error de carga se muestra como pantalla vacía — no bloquea la UI
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { load(date) }, [])
+  useEffect(() => { load(date) }, [date])
 
   function handlePrint() { window.print() }
 

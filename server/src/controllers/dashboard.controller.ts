@@ -2,9 +2,19 @@ import { Response } from 'express'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
 
+/** Devuelve el inicio del día actual en Argentina (UTC-3, sin DST) */
+function getArgentinaToday(): Date {
+  const now = new Date()
+  const argOffset = 3 * 60 * 60 * 1000 // UTC-3
+  const argNow = new Date(now.getTime() - argOffset)
+  const [year, month, day] = argNow.toISOString().slice(0, 10).split('-').map(Number)
+  // medianoche Argentina = 03:00 UTC
+  return new Date(Date.UTC(year, month - 1, day, 3, 0, 0, 0))
+}
+
 export async function getDashboard(_req: AuthRequest, res: Response): Promise<void> {
-  const now   = new Date()
-  const today = new Date(now); today.setHours(0, 0, 0, 0)
+  const today      = getArgentinaToday()
+  const now        = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
   // Últimos 7 días
@@ -20,6 +30,7 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
     weekSalesRaw,
     topItemsRaw,
     paymentRaw,
+    gastosMesAgg,
   ] = await Promise.all([
     prisma.product.count(),
 
@@ -68,6 +79,12 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
       _count: { id: true },
       _sum: { total: true },
     }),
+
+    // Gastos fijos del mes
+    prisma.gastoMensual.aggregate({
+      where: { mes: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}` },
+      _sum: { monto: true },
+    }),
   ])
 
   // ── Procesar datos ────────────────────────────────────────────────────────
@@ -78,6 +95,7 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
 
   const costoMes   = monthIngresos.reduce((s, m) => s + Number(m.quantity) * Number(m.unitCost ?? 0), 0)
   const ventasMes  = monthVentas.reduce((s, v) => s + Number(v.total), 0)
+  const gastosMes  = Number(gastosMesAgg._sum.monto ?? 0)
   const todayCount   = todaySales.length
   const todayRevenue = todaySales.reduce((s, v) => s + Number(v.total), 0)
 
@@ -136,7 +154,8 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
     month: {
       costoCompras: costoMes,
       ventas:       ventasMes,
-      ganancia:     ventasMes - costoMes,
+      gastos:       gastosMes,
+      ganancia:     ventasMes - costoMes - gastosMes,
     },
     weekSales,
     topItems,

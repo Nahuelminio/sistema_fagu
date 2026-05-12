@@ -159,6 +159,14 @@ export async function recibirOrden(req: AuthRequest, res: Response): Promise<voi
 
 export async function cancelarOrden(req: AuthRequest, res: Response): Promise<void> {
   const id = parseInt(req.params.id)
+  if (isNaN(id)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  const orden = await prisma.ordenCompra.findUnique({ where: { id } })
+  if (!orden) { res.status(404).json({ error: 'Orden no encontrada' }); return }
+  if (orden.status !== 'PENDIENTE') {
+    res.status(400).json({ error: 'Solo se pueden cancelar órdenes pendientes' }); return
+  }
+
   await prisma.ordenCompra.update({ where: { id }, data: { status: 'CANCELADA' } })
   res.json({ ok: true })
 }

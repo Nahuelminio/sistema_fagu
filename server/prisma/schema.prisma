@@ -37,6 +37,8 @@ model User {
   createdAt DateTime        @default(now())
   movements StockMovement[]
   sales     Sale[]
+  comandas  Comanda[]
+  ordenes   OrdenCompra[]
 }
 
 model Category {
@@ -160,6 +162,7 @@ model Comanda {
   mesaId    Int
   mesa      Mesa          @relation(fields: [mesaId], references: [id])
   userId    Int
+  user      User          @relation(fields: [userId], references: [id])
   notes     String?
   status    MesaStatus    @default(ABIERTA)
   createdAt DateTime      @default(now())
@@ -199,6 +202,7 @@ model OrdenCompra {
   proveedorId  Int?
   proveedor    Proveedor?  @relation(fields: [proveedorId], references: [id])
   userId       Int
+  user         User        @relation(fields: [userId], references: [id])
   status       OrdenStatus @default(PENDIENTE)
   notes        String?
   createdAt    DateTime    @default(now())

@@ -272,8 +272,6 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
           puntoVenta:     factura.puntoVenta,
         },
       })
-      ;(sale as any).cae        = factura.cae
-      ;(sale as any).nroFactura = factura.nroFactura
     }
 
     // Enviar factura por email si el cliente tiene email
@@ -299,7 +297,16 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
   }
 
   broadcastCatalogUpdate()
-  res.status(201).json(sale)
+  // Re-read sale so response includes updated CAE fields
+  const saleResponse = await prisma.sale.findUnique({
+    where: { id: sale.id },
+    include: {
+      items: { include: { product: { select: { id: true, name: true, unit: true } }, trago: { select: { id: true, name: true } } } },
+      user: { select: { id: true, name: true } },
+      cliente: { select: { id: true, nombre: true, cuit: true, dni: true } },
+    },
+  })
+  res.status(201).json(saleResponse ?? sale)
 }
 
 export async function getRanking(req: AuthRequest, res: Response): Promise<void> {

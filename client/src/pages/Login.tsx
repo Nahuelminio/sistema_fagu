@@ -9,7 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login, isAdmin } = useAuth()
+  const { login } = useAuth()
   const navigate = useNavigate()
 
   async function handleSubmit(e: FormEvent) {
@@ -17,8 +17,8 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      await login(email, password)
-      navigate(isAdmin ? '/dashboard' : '/stock')
+      const loggedUser = await login(email, password)
+      navigate(loggedUser.role === 'ADMIN' ? '/dashboard' : '/stock')
     } catch {
       setError('Email o contraseña incorrectos')
     } finally {

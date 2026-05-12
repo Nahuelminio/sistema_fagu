@@ -241,17 +241,25 @@ export default function Mesas() {
 
   async function handleCreateMesa() {
     if (!newNumero) return
-    await api.post('/mesas', { numero: parseInt(newNumero), nombre: newNombre || undefined })
-    setNewNumero('')
-    setNewNombre('')
-    setShowCreate(false)
-    load()
+    try {
+      await api.post('/mesas', { numero: parseInt(newNumero), nombre: newNombre || undefined })
+      setNewNumero('')
+      setNewNombre('')
+      setShowCreate(false)
+      load()
+    } catch (err: any) {
+      showToast(err?.response?.data?.error ?? 'Error al crear la mesa', 'error')
+    }
   }
 
   async function handleDeleteMesa(id: number) {
     if (!confirm('¿Eliminar esta mesa?')) return
-    await api.delete(`/mesas/${id}`)
-    load()
+    try {
+      await api.delete(`/mesas/${id}`)
+      load()
+    } catch (err: any) {
+      showToast(err?.response?.data?.error ?? 'Error al eliminar la mesa', 'error')
+    }
   }
 
   async function handleOpenMesa(mesa: Mesa) {

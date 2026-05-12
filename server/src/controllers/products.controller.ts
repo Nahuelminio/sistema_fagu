@@ -108,10 +108,15 @@ export async function remove(req: AuthRequest, res: Response): Promise<void> {
 
 // Fusiona removeId en keepId: reasigna todas las FK y suma el stock
 export async function mergeProducts(req: AuthRequest, res: Response): Promise<void> {
-  const { keepId, removeId } = req.body as { keepId: number; removeId: number }
+  const parsed = z.object({
+    keepId:   z.number().int().positive(),
+    removeId: z.number().int().positive(),
+  }).safeParse(req.body)
+  if (!parsed.success) { res.status(400).json({ error: 'Datos inválidos' }); return }
+  const { keepId, removeId } = parsed.data
 
-  if (!keepId || !removeId || keepId === removeId) {
-    res.status(400).json({ error: 'keepId y removeId deben ser distintos y válidos' })
+  if (keepId === removeId) {
+    res.status(400).json({ error: 'keepId y removeId deben ser distintos' })
     return
   }
 

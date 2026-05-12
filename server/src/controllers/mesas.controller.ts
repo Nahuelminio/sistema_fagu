@@ -21,19 +21,37 @@ export async function getMesas(_req: AuthRequest, res: Response): Promise<void> 
 }
 
 export async function createMesa(req: AuthRequest, res: Response): Promise<void> {
-  const { numero, nombre } = z.object({
+  const parsed = z.object({
     numero: z.number().int().positive(),
     nombre: z.string().optional(),
-  }).parse(req.body)
+  }).safeParse(req.body)
+  if (!parsed.success) { res.status(400).json({ error: 'Datos inválidos' }); return }
 
-  const mesa = await prisma.mesa.create({ data: { numero, nombre } })
-  res.status(201).json(mesa)
+  try {
+    const mesa = await prisma.mesa.create({ data: parsed.data })
+    res.status(201).json(mesa)
+  } catch (e: any) {
+    if (e.code === 'P2002') { res.status(400).json({ error: `Ya existe una mesa con el número ${parsed.data.numero}` }); return }
+    throw e
+  }
 }
 
 export async function deleteMesa(req: AuthRequest, res: Response): Promise<void> {
   const id = parseInt(req.params.id)
-  await prisma.mesa.delete({ where: { id } })
-  res.json({ ok: true })
+  if (isNaN(id)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  const openComanda = await prisma.comanda.findFirst({ where: { mesaId: id, status: 'ABIERTA' } })
+  if (openComanda) {
+    res.status(400).json({ error: 'No se puede eliminar una mesa con comanda abierta' }); return
+  }
+
+  try {
+    await prisma.mesa.delete({ where: { id } })
+    res.json({ ok: true })
+  } catch (e: any) {
+    if (e.code === 'P2025') { res.status(404).json({ error: 'Mesa no encontrada' }); return }
+    throw e
+  }
 }
 
 // ── Comandas ─────────────────────────────────────────────────────────────────
@@ -106,7 +124,21 @@ export async function addItemToComanda(req: AuthRequest, res: Response): Promise
 }
 
 export async function removeItemFromComanda(req: AuthRequest, res: Response): Promise<void> {
-  const itemId = parseInt(req.params.itemId)
+  const itemId    = parseInt(req.params.itemId)
+  const comandaId = parseInt(req.params.id)
+  if (isNaN(itemId) || isNaN(comandaId)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  const item = await prisma.comandaItem.findUnique({
+    where: { id: itemId },
+    include: { comanda: true },
+  })
+  if (!item || item.comandaId !== comandaId) {
+    res.status(404).json({ error: 'Ítem no encontrado' }); return
+  }
+  if (item.comanda.status !== 'ABIERTA') {
+    res.status(400).json({ error: 'La comanda ya está cerrada' }); return
+  }
+
   await prisma.comandaItem.delete({ where: { id: itemId } })
   res.json({ ok: true })
 }

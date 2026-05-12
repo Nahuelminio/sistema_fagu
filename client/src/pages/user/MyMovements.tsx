@@ -4,11 +4,17 @@ import { MovementsResponse } from '../../types'
 import Badge from '../../components/ui/Badge'
 
 export default function MyMovements() {
-  const [data, setData] = useState<MovementsResponse | null>(null)
+  const [data, setData]       = useState<MovementsResponse | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get<MovementsResponse>('/movements').then((r) => setData(r.data))
+    api.get<MovementsResponse>('/movements')
+      .then((r) => setData(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
+
+  if (loading) return <div className="flex h-48 items-center justify-center text-zinc-500">Cargando...</div>
 
   return (
     <div className="flex flex-col gap-4">

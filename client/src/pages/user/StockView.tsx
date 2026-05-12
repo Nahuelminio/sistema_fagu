@@ -5,15 +5,21 @@ import Input from '../../components/ui/Input'
 
 export default function StockView() {
   const [products, setProducts] = useState<Product[]>([])
-  const [search, setSearch] = useState('')
+  const [search, setSearch]     = useState('')
+  const [loading, setLoading]   = useState(true)
 
   useEffect(() => {
-    api.get<Product[]>('/products').then((r) => setProducts(r.data))
+    api.get<Product[]>('/products')
+      .then((r) => setProducts(r.data))
+      .catch(() => {/* silencioso — el usuario ve lista vacía */})
+      .finally(() => setLoading(false))
   }, [])
 
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase())
   )
+
+  if (loading) return <div className="flex h-48 items-center justify-center text-zinc-500">Cargando...</div>
 
   return (
     <div className="flex flex-col gap-4">
