@@ -133,14 +133,32 @@ export default function Botellas() {
     setError('')
     if (!productId) return setError('Seleccioná un producto')
     if (capacidad <= 0) return setError('Ingresá una capacidad válida')
+
+    // Si ya hay una botella abierta del mismo producto, avisar antes
+    const existing = botellas.find((b) => String(b.productId) === productId)
+    if (existing) {
+      const restante = Number(existing.restante)
+      if (restante > 0) {
+        const ok = confirm(
+          `Ya hay una botella abierta de este producto con ${restante.toFixed(1)} oz sin usar. ` +
+          `Si abrís otra, esos oz se pierden. ¿Continuar?`
+        )
+        if (!ok) return
+      }
+    }
+
     setSaving(true)
     try {
-      const res = await api.post<{ product: { name: string } }>('/botellas', {
+      const res = await api.post<{ product: { name: string }; ozDescartados?: number }>('/botellas', {
         productId: parseInt(productId),
         capacidad,
         alertaOz: parseFloat(alertaOz) || 3,
       })
-      showToast(`Botella de ${res.data.product?.name ?? 'producto'} abierta`)
+      const descartados = res.data.ozDescartados ?? 0
+      const msg = descartados > 0
+        ? `Botella abierta · ${descartados.toFixed(1)} oz descartados de la anterior`
+        : `Botella de ${res.data.product?.name ?? 'producto'} abierta`
+      showToast(msg)
       setShowForm(false)
       setProductId('')
       setPresetIdx(0)

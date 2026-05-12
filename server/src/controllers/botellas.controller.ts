@@ -38,7 +38,24 @@ export async function abrirBotella(req: AuthRequest, res: Response): Promise<voi
     return
   }
 
+  // Si ya hay una botella abierta con oz restantes → se descartan al abrir otra
+  const previa = await prisma.botellaActiva.findUnique({ where: { productId } })
+  const ozDescartados = previa ? Number(previa.restante) : 0
+
   const botella = await prisma.$transaction(async (tx) => {
+    // Registrar oz perdidos (si los había) — para que quede en el historial
+    if (ozDescartados > 0) {
+      await tx.stockMovement.create({
+        data: {
+          productId,
+          userId: req.user!.userId,
+          type: 'AJUSTE',
+          quantity: ozDescartados,
+          notes: `Descarte: botella anterior cerrada con ${ozDescartados.toFixed(2)} oz sin usar`,
+        },
+      })
+    }
+
     const b = await tx.botellaActiva.upsert({
       where:  { productId },
       update: { capacidad, restante: capacidad, alertaOz, abiertaEn: new Date() },
@@ -62,9 +79,9 @@ export async function abrirBotella(req: AuthRequest, res: Response): Promise<voi
     })
 
     return b
-  })
+  }, { timeout: 15000 })
 
-  res.status(201).json(botella)
+  res.status(201).json({ ...botella, ozDescartados })
 }
 
 export async function cerrarBotella(req: AuthRequest, res: Response): Promise<void> {

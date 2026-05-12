@@ -82,18 +82,13 @@ export async function registerSalida(req: AuthRequest, res: Response): Promise<v
 
   const { productId, quantity, notes } = parsed.data
 
-  const product = await prisma.product.findUnique({ where: { id: productId } })
-  if (!product) {
-    res.status(404).json({ error: 'Producto no encontrado' })
-    return
-  }
-
-  if (Number(product.currentStock) < quantity) {
-    res.status(400).json({ error: 'Stock insuficiente', available: product.currentStock })
-    return
-  }
-
   const result = await prisma.$transaction(async (tx) => {
+    // Re-leer dentro de la transacción para evitar race conditions
+    const product = await tx.product.findUnique({ where: { id: productId } })
+    if (!product) throw new Error('Producto no encontrado')
+    if (Number(product.currentStock) < quantity) {
+      throw Object.assign(new Error('Stock insuficiente'), { code: 'INSUFFICIENT_STOCK', available: product.currentStock })
+    }
     const movement = await tx.stockMovement.create({
       data: {
         productId,
@@ -115,7 +110,20 @@ export async function registerSalida(req: AuthRequest, res: Response): Promise<v
     })
 
     return { movement, currentStock: updated.currentStock }
+  }, { timeout: 15000 }).catch((err: any) => {
+    if (err.code === 'INSUFFICIENT_STOCK') {
+      return { _error: { status: 400, message: err.message, available: err.available } }
+    }
+    if (err.message === 'Producto no encontrado') {
+      return { _error: { status: 404, message: err.message } }
+    }
+    throw err
   })
+
+  if ('_error' in result && result._error) {
+    res.status(result._error.status).json({ error: result._error.message, available: result._error.available })
+    return
+  }
 
   broadcastCatalogUpdate()
   res.status(201).json(result)
