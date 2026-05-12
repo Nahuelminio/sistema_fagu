@@ -9,10 +9,21 @@
  *    ARCA_CUIT=20XXXXXXXXX
  *    ARCA_PUNTO_VENTA=1
  *    ARCA_PRODUCTION=false   (cambiar a true cuando esté listo para producción)
+ *    ARCA_CBTE_TIPO=11       (11 = Factura C Monotributista, 6 = Factura B RI)
  * 3. Cambiar ARCA_ENABLED=true en .env
+ *
+ * Usa la librería `afip.ts` que se comunica DIRECTAMENTE con los web services
+ * de ARCA (WSAA + WSFE) usando los certificados — sin proxies externos.
  */
 
+import fs from 'fs'
 import path from 'path'
+import https from 'https'
+import { Afip } from 'afip.ts'
+
+// AFIP usa cifrado SSL antiguo (DH keys de 1024 bits). Node.js 17+ los rechaza
+// por defecto. Forzamos un cipher list más permisivo solo para llamadas HTTPS.
+https.globalAgent.options.ciphers = 'DEFAULT:@SECLEVEL=0'
 
 const ARCA_ENABLED = process.env.ARCA_ENABLED === 'true'
 
@@ -21,21 +32,29 @@ const ARCA_ENABLED = process.env.ARCA_ENABLED === 'true'
 // 11 = Factura C (Monotributista)
 const CBTE_TIPO = parseInt(process.env.ARCA_CBTE_TIPO ?? '11')
 
-let afipInstance: unknown = null
+let afipInstance: Afip | null = null
 
-async function getAfip() {
+function getAfip(): Afip | null {
   if (!ARCA_ENABLED) return null
   if (afipInstance) return afipInstance
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Afip = require('@afipsdk/afip.js')
+  const certPath = path.join(__dirname, '../../certs/certificate.pem')
+  const keyPath  = path.join(__dirname, '../../certs/privatekey.pem')
+
+  if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+    console.error('[ARCA] No se encontraron los certificados en server/certs/')
+    return null
+  }
+
+  const cert = fs.readFileSync(certPath, 'utf8')
+  const key  = fs.readFileSync(keyPath,  'utf8')
 
   afipInstance = new Afip({
-    CUIT:       parseInt(process.env.ARCA_CUIT ?? '0'),
-    cert:       path.join(__dirname, '../../../certs/certificate.pem'),
-    key:        path.join(__dirname, '../../../certs/privatekey.pem'),
+    cuit:       parseInt(process.env.ARCA_CUIT ?? '0'),
+    cert,
+    key,
     production: process.env.ARCA_PRODUCTION === 'true',
-    res_folder: path.join(__dirname, '../../../certs/'),
+    handleTicket: false, // afip.ts maneja el cache del token automáticamente
   })
 
   return afipInstance
@@ -55,18 +74,21 @@ export interface FacturaResult {
 }
 
 export async function emitirFactura(total: number, cliente?: ClienteFactura | null): Promise<FacturaResult | null> {
-  const afip = await getAfip() as any
+  const afip = getAfip()
   if (!afip) {
-    console.log('[ARCA] Facturación deshabilitada (ARCA_ENABLED=false)')
+    console.log('[ARCA] Facturación deshabilitada (ARCA_ENABLED=false o sin certificados)')
     return null
   }
 
   const puntoVenta = parseInt(process.env.ARCA_PUNTO_VENTA ?? '1')
 
-  const lastVoucher = await afip.ElectronicBilling.getLastVoucher(puntoVenta, CBTE_TIPO)
-  const nextNumber  = lastVoucher + 1
+  // Último comprobante autorizado en este punto de venta
+  const lastVoucherResult = await afip.electronicBillingService.getLastVoucher(puntoVenta, CBTE_TIPO)
+  const lastNumber = Number(lastVoucherResult.CbteNro ?? 0)
+  const nextNumber = lastNumber + 1
 
-  const fecha = new Date().toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
+  // Fecha en formato YYYYMMDD
+  const fechaStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
 
   // Determinar tipo y nro de documento del receptor
   let docTipo = 99  // 99 = Consumidor Final
@@ -80,35 +102,60 @@ export async function emitirFactura(total: number, cliente?: ClienteFactura | nu
     docNro  = parseInt(cliente.dni.replace(/\D/g, ''))
   }
 
-  const data = {
+  // Factura C (Monotributista) → sin IVA discriminado
+  // Factura B (RI a Consumidor Final) → IVA 21% incluido en el total
+  const isFacturaC = CBTE_TIPO === 11
+
+  // El total que recibimos es bruto (con IVA). Calcular neto e IVA.
+  // total = neto + iva  →  neto = total / 1.21  ;  iva = total - neto
+  const impNeto = isFacturaC ? total : Math.round((total / 1.21) * 100) / 100
+  const impIVA  = isFacturaC ? 0     : Math.round((total - impNeto) * 100) / 100
+
+  const payload: Record<string, unknown> = {
     CantReg:    1,
     PtoVta:     puntoVenta,
     CbteTipo:   CBTE_TIPO,
-    Concepto:   1,
+    Concepto:   1, // 1 = Productos
     DocTipo:    docTipo,
     DocNro:     docNro,
     CbteDesde:  nextNumber,
     CbteHasta:  nextNumber,
-    CbteFch:    fecha,
+    CbteFch:    fechaStr,
     ImpTotal:   total,
     ImpTotConc: 0,
-    ImpNeto:    total,
+    ImpNeto:    impNeto,
     ImpOpEx:    0,
-    ImpIVA:     0,
+    ImpIVA:     impIVA,
     ImpTrib:    0,
     MonId:      'PES',
     MonCotiz:   1,
-    Iva: [{ Id: 3, BaseImp: total, Importe: 0 }],
   }
 
-  const result = await afip.ElectronicBilling.createVoucher(data)
+  // Para Factura B agregar el detalle de alicuotas IVA (Id 5 = 21%)
+  if (!isFacturaC) {
+    payload.Iva = [{ Id: 5, BaseImp: impNeto, Importe: impIVA }]
+  }
 
-  const vencimiento = new Date(
-    String(result.CAEFchVto).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')
-  )
+  const result: any = await afip.electronicBillingService.createVoucher(payload as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+
+  // afip.ts retorna el CAE tanto en el nivel raíz (minúscula) como en response.FeDetResp
+  const cae = String(result.cae ?? result.CAE ?? '')
+  const vencimientoStr = String(result.caeFchVto ?? result.CAEFchVto ?? '')
+
+  if (!cae) {
+    const errors = result.response?.Errors?.Err ?? []
+    const errMsg = errors.map((e: any) => `[${e.Code}] ${e.Msg}`).join(' | ') || 'CAE vacío'
+    throw new Error(`ARCA rechazó la factura: ${errMsg}`)
+  }
+
+  const vencimiento = vencimientoStr.length === 8
+    ? new Date(`${vencimientoStr.slice(0, 4)}-${vencimientoStr.slice(4, 6)}-${vencimientoStr.slice(6, 8)}`)
+    : new Date()
+
+  console.log(`[ARCA] ✓ Factura emitida — CAE: ${cae} — N° ${puntoVenta}-${String(nextNumber).padStart(8, '0')}`)
 
   return {
-    cae:            result.CAE,
+    cae,
     caeVencimiento: vencimiento,
     nroFactura:     nextNumber,
     puntoVenta,

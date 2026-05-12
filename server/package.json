@@ -2,9 +2,9 @@
   "name": "stock-server",
   "version": "1.0.0",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "OPENSSL_CONF=./openssl.cnf tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "OPENSSL_CONF=./openssl.cnf node dist/index.js",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@afipsdk/afip.js": "^1.2.3",
     "@prisma/client": "^5.10.0",
+    "afip.ts": "^3.2.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
