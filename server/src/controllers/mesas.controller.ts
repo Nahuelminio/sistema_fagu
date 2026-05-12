@@ -42,14 +42,25 @@ export async function deleteMesa(req: AuthRequest, res: Response): Promise<void>
 
   const openComanda = await prisma.comanda.findFirst({ where: { mesaId: id, status: 'ABIERTA' } })
   if (openComanda) {
-    res.status(400).json({ error: 'No se puede eliminar una mesa con comanda abierta' }); return
+    res.status(400).json({ error: 'No se puede eliminar una cuenta con comanda abierta. Cerrala primero.' }); return
   }
 
   try {
-    await prisma.mesa.delete({ where: { id } })
+    // Cascade manual: borrar comandas históricas (CERRADAS) + sus items.
+    // Las ventas (Sale) quedan intactas porque son entidades independientes
+    // que ya tienen todos los datos copiados.
+    await prisma.$transaction(async (tx) => {
+      const comandas = await tx.comanda.findMany({ where: { mesaId: id }, select: { id: true } })
+      const comandaIds = comandas.map((c) => c.id)
+      if (comandaIds.length > 0) {
+        await tx.comandaItem.deleteMany({ where: { comandaId: { in: comandaIds } } })
+        await tx.comanda.deleteMany({ where: { id: { in: comandaIds } } })
+      }
+      await tx.mesa.delete({ where: { id } })
+    })
     res.json({ ok: true })
   } catch (e: any) {
-    if (e.code === 'P2025') { res.status(404).json({ error: 'Mesa no encontrada' }); return }
+    if (e.code === 'P2025') { res.status(404).json({ error: 'Cuenta no encontrada' }); return }
     throw e
   }
 }
