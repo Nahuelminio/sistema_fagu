@@ -127,6 +127,7 @@ export interface Sale {
   user: { id: number; name: string }
   items: SaleItem[]
   cae?: string | null
+  caeVencimiento?: string | null
   nroFactura?: number | null
   puntoVenta?: number | null
   cliente?: { id: number; nombre: string; cuit?: string | null; dni?: string | null } | null

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../../lib/api'
 import { VentasResponse, Sale, PAYMENT_LABELS, PaymentMethod } from '../../types'
 import Badge from '../../components/ui/Badge'
+import FacturaModal from '../../components/FacturaModal'
 
 function formatARS(n: number) {
   return new Intl.NumberFormat('es-AR', {
@@ -20,6 +21,7 @@ function formatDate(iso: string) {
 
 function VentaCard({ venta }: { venta: Sale }) {
   const [open, setOpen] = useState(false)
+  const [showFactura, setShowFactura] = useState(false)
   const hasFactura = !!venta.cae
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900">
@@ -73,9 +75,17 @@ function VentaCard({ venta }: { venta: Sale }) {
           {/* Datos de factura */}
           {hasFactura && (
             <div className="mt-3 rounded-xl border border-brand-500/20 bg-brand-500/5 px-3 py-2 flex flex-col gap-0.5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-brand-400">Factura electronica</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-widest text-brand-400">Factura electronica</p>
+                <button
+                  onClick={() => setShowFactura(true)}
+                  className="rounded-lg bg-brand-500 px-3 py-1 text-xs font-semibold text-white hover:bg-brand-400 transition"
+                >
+                  Ver factura
+                </button>
+              </div>
               {venta.nroFactura != null && (
-                <p className="text-xs text-zinc-400">
+                <p className="text-xs text-zinc-400 mt-1">
                   Comprobante:{' '}
                   <span className="font-mono text-zinc-200">
                     {String(venta.puntoVenta ?? 1).padStart(4, '0')}-{String(venta.nroFactura).padStart(8, '0')}
@@ -100,6 +110,8 @@ function VentaCard({ venta }: { venta: Sale }) {
           )}
         </div>
       )}
+
+      {showFactura && <FacturaModal sale={venta} onClose={() => setShowFactura(false)} />}
     </div>
   )
 }
