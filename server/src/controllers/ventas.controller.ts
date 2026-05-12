@@ -114,10 +114,28 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
       }
     } else {
       const product = productsSinBotella.find((p) => p.id === productId)
-      if (!product || Number(product.currentStock) < requerido) {
+      if (!product) {
+        res.status(400).json({ error: 'Ingrediente no encontrado' })
+        return
+      }
+      // Si el producto es tipo botella, hay que abrir una botella primero
+      if (product.bottleSize) {
+        if (Number(product.currentStock) < 1) {
+          res.status(400).json({
+            error: `No hay stock de "${product.name}" (necesitás abrir una botella)`,
+          })
+          return
+        }
         res.status(400).json({
-          error: `Stock insuficiente para "${product?.name ?? 'ingrediente'}"`,
-          available: product?.currentStock ?? 0,
+          error: `Tenés que abrir una botella de "${product.name}" antes de vender este trago`,
+        })
+        return
+      }
+      // Producto sin botella (ej: ingrediente seco) — descuento directo
+      if (Number(product.currentStock) < requerido) {
+        res.status(400).json({
+          error: `Stock insuficiente para "${product.name}"`,
+          available: product.currentStock,
           required: requerido,
         })
         return

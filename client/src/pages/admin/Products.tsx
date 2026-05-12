@@ -9,7 +9,7 @@ import { useToast } from '../../context/ToastContext'
 
 const emptyForm = {
   name: '', categoryId: '', unit: '', minStock: '0',
-  costPrice: '', salePrice: '', visibleInCatalog: false,
+  costPrice: '', salePrice: '', bottleSize: '', visibleInCatalog: false,
 }
 
 const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
@@ -56,6 +56,7 @@ export default function Products() {
       minStock: p.minStock,
       costPrice: p.costPrice ?? '',
       salePrice: p.salePrice ?? '',
+      bottleSize: p.bottleSize ?? '',
       visibleInCatalog: p.visibleInCatalog,
     })
     setShowForm(true)
@@ -71,6 +72,7 @@ export default function Products() {
       minStock: parseFloat(form.minStock),
       costPrice: form.costPrice ? parseFloat(form.costPrice) : undefined,
       salePrice: form.salePrice ? parseFloat(form.salePrice) : undefined,
+      bottleSize: form.bottleSize ? parseFloat(form.bottleSize) : null,
       visibleInCatalog: form.visibleInCatalog,
     }
     try {
@@ -205,6 +207,43 @@ export default function Products() {
               <Input label="Precio costo" type="number" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} />
               <Input label="Precio venta" type="number" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: e.target.value })} />
             </div>
+
+            {/* Tamaño de botella — solo si es producto en botella */}
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-2">¿Es un producto en botella?</p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {[
+                  { label: 'No es botella', val: '' },
+                  { label: '750 ml', val: '25.36' },
+                  { label: '1 L', val: '33.81' },
+                  { label: '500 ml', val: '16.91' },
+                ].map((opt) => (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => setForm({ ...form, bottleSize: opt.val })}
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                      form.bottleSize === opt.val
+                        ? 'border-brand-500 bg-brand-500/20 text-brand-400'
+                        : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <Input
+                label="Tamaño personalizado (oz)"
+                type="number" step="0.01"
+                value={form.bottleSize}
+                onChange={(e) => setForm({ ...form, bottleSize: e.target.value })}
+                placeholder="Ej: 25.36 (750ml), 33.81 (1L)"
+              />
+              <p className="mt-1 text-[11px] text-zinc-500">
+                Si es botella, el stock se cuenta en unidades. Al abrir una botella se usa este tamaño en oz para los tragos.
+              </p>
+            </div>
+
             <label className="flex items-center gap-2 text-sm text-zinc-400">
               <input
                 type="checkbox"

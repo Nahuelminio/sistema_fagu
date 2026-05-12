@@ -57,6 +57,9 @@ model Product {
   minStock         Decimal         @default(0) @db.Decimal(10, 3)
   costPrice        Decimal?        @db.Decimal(10, 2)
   salePrice        Decimal?        @db.Decimal(10, 2)
+  // Solo para productos tipo botella: oz por unidad (ej: 25.36 para 750ml, 33.81 para 1L).
+  // Si está seteado, los ingresos se pueden cargar "en botellas" y el sistema convierte a oz.
+  bottleSize       Decimal?        @db.Decimal(10, 3)
   visibleInCatalog Boolean         @default(false)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt

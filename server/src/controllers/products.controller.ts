@@ -10,6 +10,7 @@ const productSchema = z.object({
   minStock: z.number().min(0).default(0),
   costPrice: z.number().positive().optional(),
   salePrice: z.number().positive().optional(),
+  bottleSize: z.number().positive().nullable().optional(),
   visibleInCatalog: z.boolean().default(false),
 })
 
@@ -21,6 +22,7 @@ const productSelect = {
   minStock: true,
   costPrice: true,
   salePrice: true,
+  bottleSize: true,
   visibleInCatalog: true,
   createdAt: true,
   updatedAt: true,

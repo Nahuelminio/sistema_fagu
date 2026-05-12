@@ -249,8 +249,18 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
       }
     } else {
       const p = ingProducts.find((p) => p.id === productId)
-      if (!p || Number(p.currentStock) < requerido) {
-        res.status(400).json({ error: `Stock insuficiente para "${p?.name ?? 'ingrediente'}"` })
+      if (!p) { res.status(400).json({ error: 'Ingrediente no encontrado' }); return }
+      // Si es un producto tipo botella → hay que abrir una primero
+      if (p.bottleSize) {
+        if (Number(p.currentStock) < 1) {
+          res.status(400).json({ error: `No hay stock de "${p.name}" (necesitás abrir una botella)` })
+          return
+        }
+        res.status(400).json({ error: `Tenés que abrir una botella de "${p.name}" antes de vender este trago` })
+        return
+      }
+      if (Number(p.currentStock) < requerido) {
+        res.status(400).json({ error: `Stock insuficiente para "${p.name}"` })
         return
       }
     }

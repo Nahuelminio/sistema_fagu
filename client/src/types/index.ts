@@ -23,6 +23,8 @@ export interface Product {
   minStock: string
   costPrice: string | null
   salePrice: string | null
+  /** oz por unidad — si es null el producto NO es tipo botella (ej: producto granel) */
+  bottleSize: string | null
   visibleInCatalog: boolean
   createdAt: string
   updatedAt: string

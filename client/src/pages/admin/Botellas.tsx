@@ -197,14 +197,24 @@ export default function Botellas() {
             <label className="text-xs text-zinc-400">Producto / ingrediente</label>
             <select
               value={productId}
-              onChange={e => setProductId(e.target.value)}
+              onChange={e => {
+                const id = e.target.value
+                setProductId(id)
+                // Auto-seleccionar preset según bottleSize del producto
+                const p = products.find((x) => String(x.id) === id)
+                if (p?.bottleSize) {
+                  const bs = Number(p.bottleSize)
+                  const idx = PRESETS.findIndex((preset) => Math.abs(preset.value - bs) < 0.5)
+                  if (idx >= 0) setPresetIdx(idx)
+                }
+              }}
               className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
               required
             >
               <option value="">— Seleccioná —</option>
               {products.map(p => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({p.unit})
+                  {p.name} ({p.unit}) — stock: {Number(p.currentStock)}
                 </option>
               ))}
             </select>

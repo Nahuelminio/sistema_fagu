@@ -30,6 +30,14 @@ export async function abrirBotella(req: AuthRequest, res: Response): Promise<voi
 
   const { productId, capacidad, alertaOz = 3 } = parsed.data
 
+  // Verificar que haya stock de botellas cerradas
+  const product = await prisma.product.findUnique({ where: { id: productId } })
+  if (!product) { res.status(404).json({ error: 'Producto no encontrado' }); return }
+  if (Number(product.currentStock) < 1) {
+    res.status(400).json({ error: `No hay botellas cerradas de "${product.name}"` })
+    return
+  }
+
   const botella = await prisma.$transaction(async (tx) => {
     const b = await tx.botellaActiva.upsert({
       where:  { productId },
@@ -38,19 +46,19 @@ export async function abrirBotella(req: AuthRequest, res: Response): Promise<voi
       include: botellaInclude,
     })
 
-    // Abrir botella = SALIDA del stock (pasa de alacena al mostrador)
+    // Abrir botella = -1 botella cerrada del stock + crear movimiento
     await tx.stockMovement.create({
       data: {
         productId,
         userId: req.user!.userId,
         type: 'SALIDA',
-        quantity: capacidad,
+        quantity: 1,
         notes: `Apertura de botella (${capacidad} oz)`,
       },
     })
     await tx.product.update({
       where: { id: productId },
-      data: { currentStock: { decrement: capacidad } },
+      data: { currentStock: { decrement: 1 } },
     })
 
     return b
