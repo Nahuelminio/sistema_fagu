@@ -83,10 +83,25 @@ export default function FacturaModal({ sale, onClose }: { sale: Sale; onClose: (
         {/* Header con tipo de comprobante */}
         <div className="grid grid-cols-3 border-b-2 border-zinc-300">
           <div className="p-5">
-            <p className="text-2xl font-black tracking-wider">FAGU</p>
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Drink Bar</p>
-            <p className="mt-3 text-xs text-zinc-700">{EMISOR.razonSocial}</p>
-            <p className="text-xs text-zinc-700">CUIT: {EMISOR.cuit}</p>
+            <img
+              src="/logo.png"
+              alt="FAGU Drink Bar"
+              className="h-16 w-16 rounded-full object-cover mb-2"
+              onError={(e) => {
+                // fallback al texto si falla la carga
+                const img = e.target as HTMLImageElement
+                img.style.display = 'none'
+                const fallback = img.nextElementSibling as HTMLElement | null
+                if (fallback) fallback.style.display = 'block'
+              }}
+            />
+            <div style={{ display: 'none' }}>
+              <p className="text-2xl font-black tracking-wider">FAGU</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Drink Bar</p>
+            </div>
+            <p className="mt-2 text-xs font-bold text-zinc-900">{EMISOR.razonSocial}</p>
+            <p className="text-xs text-zinc-700">{EMISOR.nombreFantasia}</p>
+            <p className="text-xs text-zinc-700 mt-1">CUIT: {EMISOR.cuit}</p>
             <p className="text-xs text-zinc-700">Ing. Brutos: {EMISOR.ingresosBrutos}</p>
             <p className="text-xs text-zinc-700">{EMISOR.condicionIVA}</p>
             <p className="text-xs text-zinc-700 mt-1">{EMISOR.domicilio}</p>
