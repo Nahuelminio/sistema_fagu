@@ -3,8 +3,7 @@ import { z } from 'zod'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
 import { broadcastCatalogUpdate } from '../services/sse.service'
-import { emitirFactura, ClienteFactura } from '../services/arca.service'
-import { enviarFacturaEmail } from '../services/email.service'
+import { processFacturaYEmail } from '../utils/processFactura'
 
 const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MERCADOPAGO', 'CUENTA_CORRIENTE'] as const
 
@@ -250,51 +249,14 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     { timeout: 20000 }
   )
 
-  // Facturación electrónica ARCA + envío de email
-  try {
-    let clienteData: (ClienteFactura & { email?: string | null }) | null = null
-    if (clienteId) {
-      const c = await prisma.cliente.findUnique({
-        where: { id: clienteId },
-        select: { nombre: true, cuit: true, dni: true, email: true },
-      })
-      clienteData = c ?? null
-    }
-
-    const factura = debeFacturar ? await emitirFactura(total, clienteData) : null
-    if (factura) {
-      await prisma.sale.update({
-        where: { id: sale.id },
-        data: {
-          cae:            factura.cae,
-          caeVencimiento: factura.caeVencimiento,
-          nroFactura:     factura.nroFactura,
-          puntoVenta:     factura.puntoVenta,
-        },
-      })
-    }
-
-    // Enviar factura por email si el cliente tiene email
-    if (clienteData?.email && (factura || debeFacturar)) {
-      await enviarFacturaEmail({
-        clienteNombre: clienteData.nombre,
-        clienteEmail:  clienteData.email,
-        saleId:        sale.id,
-        total,
-        items: sale.items.map((i) => ({
-          nombre:    i.nombre || (i as any).product?.name || (i as any).trago?.name || '?',
-          quantity:  Number(i.quantity),
-          unitPrice: Number(i.unitPrice),
-        })),
-        paymentMethod: paymentMethod,
-        cae:           factura?.cae ?? null,
-        nroFactura:    factura?.nroFactura ?? null,
-        fecha:         new Date(),
-      })
-    }
-  } catch (err) {
-    console.error('[ARCA/Email] Error:', err)
-  }
+  // Facturación electrónica ARCA + envío de email (no bloqueante en caso de error)
+  await processFacturaYEmail({
+    saleId:        sale.id,
+    total,
+    paymentMethod,
+    clienteId:     clienteId ?? null,
+    debeFacturar,
+  })
 
   broadcastCatalogUpdate()
   // Re-read sale so response includes updated CAE fields

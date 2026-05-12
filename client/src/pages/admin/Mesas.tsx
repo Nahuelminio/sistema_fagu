@@ -4,6 +4,14 @@ import { Product, Trago, PaymentMethod, PAYMENT_LABELS } from '../../types'
 import Button from '../../components/ui/Button'
 import { useToast } from '../../context/ToastContext'
 
+interface Cliente {
+  id: number
+  nombre: string
+  cuit?: string | null
+  dni?: string | null
+  email?: string | null
+}
+
 interface ComandaItem {
   id: number
   productId: number | null
@@ -44,6 +52,7 @@ function ComandaView({
 }) {
   const [products, setProducts] = useState<Product[]>([])
   const [tragos, setTragos]     = useState<Trago[]>([])
+  const [clientes, setClientes] = useState<Cliente[]>([])
   const [tab, setTab]           = useState<'trago' | 'product'>('trago')
   const [selectedId, setSelectedId] = useState('')
   const [quantity, setQuantity]     = useState('1')
@@ -52,11 +61,28 @@ function ComandaView({
   const [discount, setDiscount] = useState('')
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
+  // Cliente + factura
+  const [clienteId, setClienteId]           = useState<number | null>(null)
+  const [clienteSearch, setClienteSearch]   = useState('')
+  const [showClienteList, setShowClienteList] = useState(false)
+  const [generarFactura, setGenerarFactura] = useState(false)
 
   useEffect(() => {
-    api.get<Product[]>('/products').then((r) => setProducts(r.data))
-    api.get<Trago[]>('/tragos').then((r) => setTragos(r.data))
+    api.get<Product[]>('/products').then((r) => setProducts(r.data)).catch(() => {})
+    api.get<Trago[]>('/tragos').then((r) => setTragos(r.data)).catch(() => {})
+    api.get<Cliente[]>('/clientes').then((r) => setClientes(r.data)).catch(() => {})
   }, [])
+
+  const clienteSeleccionado = clientes.find((c) => c.id === clienteId) ?? null
+  const filteredClientes = clientes.filter((c) => {
+    const q = clienteSearch.toLowerCase().trim()
+    if (!q) return true
+    return c.nombre.toLowerCase().includes(q)
+      || c.cuit?.includes(q)
+      || c.dni?.includes(q)
+  }).slice(0, 6)
+
+  const debeFacturar = paymentMethod !== 'EFECTIVO' || generarFactura
 
   const availableProducts = products.filter((p) => Number(p.currentStock) > 0)
   const availableTragos   = tragos.filter((t) => t.active)
@@ -92,7 +118,12 @@ function ComandaView({
     try {
       const res = await api.post<{ saleId: number; total: number }>(
         `/mesas/comanda/${currentComanda.id}/cerrar`,
-        { paymentMethod, discount: discountAmt }
+        {
+          paymentMethod,
+          discount: discountAmt,
+          ...(clienteId ? { clienteId } : {}),
+          ...(paymentMethod === 'EFECTIVO' ? { generarFactura } : {}),
+        }
       )
       onClose(res.data.saleId, res.data.total)
     } catch (e: unknown) {
@@ -202,9 +233,86 @@ function ComandaView({
             </div>
           </div>
 
+          {/* Cliente (opcional, para factura personalizada) */}
+          <div className="mt-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">Cliente (opcional)</p>
+            {clienteSeleccionado ? (
+              <div className="flex items-center justify-between rounded-xl border border-brand-500/30 bg-brand-500/5 px-3 py-2">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">{clienteSeleccionado.nombre}</p>
+                  {(clienteSeleccionado.cuit || clienteSeleccionado.dni) && (
+                    <p className="text-xs text-zinc-500">
+                      {clienteSeleccionado.cuit ? `CUIT ${clienteSeleccionado.cuit}` : `DNI ${clienteSeleccionado.dni}`}
+                      {clienteSeleccionado.email && ` · ${clienteSeleccionado.email}`}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setClienteId(null); setClienteSearch('') }}
+                  className="text-xs text-zinc-500 hover:text-red-400 transition"
+                >
+                  Quitar
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, CUIT o DNI..."
+                  value={clienteSearch}
+                  onChange={(e) => { setClienteSearch(e.target.value); setShowClienteList(true) }}
+                  onFocus={() => setShowClienteList(true)}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand-500"
+                />
+                {showClienteList && filteredClientes.length > 0 && (
+                  <div className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl">
+                    {filteredClientes.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          setClienteId(c.id)
+                          setClienteSearch('')
+                          setShowClienteList(false)
+                        }}
+                        className="block w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 transition"
+                      >
+                        <p className="font-medium">{c.nombre}</p>
+                        {(c.cuit || c.dni) && (
+                          <p className="text-xs text-zinc-500">
+                            {c.cuit ? `CUIT ${c.cuit}` : `DNI ${c.dni}`}
+                          </p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Factura */}
+          <div className="mt-3">
+            {paymentMethod !== 'EFECTIVO' ? (
+              <div className="flex items-center gap-2 rounded-xl border border-brand-500/30 bg-brand-500/5 px-3 py-2">
+                <span className="h-2 w-2 rounded-full bg-brand-400" />
+                <p className="text-xs text-zinc-300">Se generará factura automáticamente</p>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={generarFactura}
+                  onChange={(e) => setGenerarFactura(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 accent-brand-500"
+                />
+                <span className="text-xs text-zinc-300">Generar factura</span>
+              </label>
+            )}
+          </div>
+
           {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
           <Button type="button" onClick={handleClose} loading={saving} className="mt-3 w-full">
-            Cerrar y cobrar
+            {debeFacturar ? 'Cobrar y facturar' : 'Cerrar y cobrar'}
           </Button>
         </div>
       )}

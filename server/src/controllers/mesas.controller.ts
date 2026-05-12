@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { z } from 'zod'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
+import { processFacturaYEmail } from '../utils/processFactura'
 
 const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MERCADOPAGO', 'CUENTA_CORRIENTE'] as const
 
@@ -157,9 +158,11 @@ export async function removeItemFromComanda(req: AuthRequest, res: Response): Pr
 // ── Cerrar comanda → crear venta ─────────────────────────────────────────────
 
 const cerrarSchema = z.object({
-  paymentMethod: z.enum(PAYMENT_METHODS).default('EFECTIVO'),
-  discount: z.number().min(0).default(0),
-  notes: z.string().optional(),
+  paymentMethod:   z.enum(PAYMENT_METHODS).default('EFECTIVO'),
+  discount:        z.number().min(0).default(0),
+  notes:           z.string().optional(),
+  generarFactura:  z.boolean().optional(),
+  clienteId:       z.number().int().positive().optional(),
 })
 
 export async function cerrarComanda(req: AuthRequest, res: Response): Promise<void> {
@@ -167,7 +170,10 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
   const parsed = cerrarSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: 'Datos inválidos' }); return }
 
-  const { paymentMethod, discount, notes: saleNotes } = parsed.data
+  const { paymentMethod, discount, notes: saleNotes, generarFactura, clienteId } = parsed.data
+
+  // No-efectivo → factura obligatoria. Efectivo → solo si el usuario lo pide.
+  const debeFacturar = paymentMethod !== 'EFECTIVO' || generarFactura === true
 
   const comanda = await prisma.comanda.findUnique({
     where: { id: comandaId },
@@ -256,6 +262,7 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
     const newSale = await tx.sale.create({
       data: {
         userId: req.user!.userId,
+        ...(clienteId ? { clienteId } : {}),
         subtotal,
         discount,
         total,
@@ -349,5 +356,26 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
     return newSale
   }, { timeout: 20000 })
 
-  res.status(201).json({ saleId: sale.id, total: Number(sale.total) })
+  // Facturación electrónica ARCA + email (no bloqueante)
+  await processFacturaYEmail({
+    saleId:        sale.id,
+    total,
+    paymentMethod,
+    clienteId:     clienteId ?? null,
+    debeFacturar,
+  })
+
+  // Re-leer la venta con el CAE ya actualizado (si se emitió factura)
+  const saleFinal = await prisma.sale.findUnique({
+    where: { id: sale.id },
+    select: { id: true, total: true, cae: true, nroFactura: true, puntoVenta: true },
+  })
+
+  res.status(201).json({
+    saleId:     sale.id,
+    total:      Number(sale.total),
+    cae:        saleFinal?.cae ?? null,
+    nroFactura: saleFinal?.nroFactura ?? null,
+    puntoVenta: saleFinal?.puntoVenta ?? null,
+  })
 }
