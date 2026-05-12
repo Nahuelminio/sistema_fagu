@@ -11,9 +11,9 @@ const router = Router()
 
 router.use(authenticate)
 
-// Mesas
+// Mesas — cualquier usuario puede crear cuentas (sobre la marcha); solo admin elimina
 router.get('/',       asyncHandler(getMesas))
-router.post('/',      requireAdmin, asyncHandler(createMesa))
+router.post('/',      asyncHandler(createMesa))
 router.delete('/:id', requireAdmin, asyncHandler(deleteMesa))
 
 // Comandas por mesa

@@ -239,26 +239,38 @@ export default function Mesas() {
 
   useEffect(() => { load() }, [])
 
+  function getNextNumero(): number {
+    // Auto-incremento: tomamos el máximo número existente + 1 (o 1 si no hay ninguno)
+    if (mesas.length === 0) return 1
+    return Math.max(...mesas.map((m) => m.numero)) + 1
+  }
+
   async function handleCreateMesa() {
-    if (!newNumero) return
+    const numero = newNumero ? parseInt(newNumero) : getNextNumero()
     try {
-      await api.post('/mesas', { numero: parseInt(newNumero), nombre: newNombre || undefined })
+      await api.post('/mesas', { numero, nombre: newNombre || undefined })
       setNewNumero('')
       setNewNombre('')
       setShowCreate(false)
       load()
     } catch (err: any) {
-      showToast(err?.response?.data?.error ?? 'Error al crear la mesa', 'error')
+      showToast(err?.response?.data?.error ?? 'Error al crear la cuenta', 'error')
     }
   }
 
+  function openCreate() {
+    setNewNumero(String(getNextNumero()))
+    setNewNombre('')
+    setShowCreate(true)
+  }
+
   async function handleDeleteMesa(id: number) {
-    if (!confirm('¿Eliminar esta mesa?')) return
+    if (!confirm('¿Eliminar esta cuenta?')) return
     try {
       await api.delete(`/mesas/${id}`)
       load()
     } catch (err: any) {
-      showToast(err?.response?.data?.error ?? 'Error al eliminar la mesa', 'error')
+      showToast(err?.response?.data?.error ?? 'Error al eliminar la cuenta', 'error')
     }
   }
 
@@ -296,41 +308,52 @@ export default function Mesas() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-zinc-100">Mesas</h1>
+        <div>
+          <h1 className="text-xl font-bold text-zinc-100">Cuentas abiertas</h1>
+          <p className="text-xs text-zinc-500">Mesas o clientes con cuenta pendiente</p>
+        </div>
         <button
-          onClick={() => setShowCreate((v) => !v)}
-          className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition"
+          onClick={() => showCreate ? setShowCreate(false) : openCreate()}
+          className="rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-400 transition"
         >
-          + Nueva mesa
+          + Nueva cuenta
         </button>
       </div>
 
 
       {showCreate && (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex flex-col gap-3">
-          <p className="text-sm font-semibold text-zinc-300">Nueva mesa</p>
-          <div className="grid grid-cols-2 gap-2">
+          <p className="text-sm font-semibold text-zinc-300">Nueva cuenta</p>
+          <div className="grid grid-cols-3 gap-2">
             <input
-              type="number" placeholder="Número" value={newNumero}
+              type="number" placeholder="N°" value={newNumero}
               onChange={(e) => setNewNumero(e.target.value)}
-              className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none"
+              className="col-span-1 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none"
             />
             <input
-              type="text" placeholder="Nombre (opcional)" value={newNombre}
+              type="text" placeholder="Nombre (ej: Juan, Mesa de la ventana...)" value={newNombre}
               onChange={(e) => setNewNombre(e.target.value)}
-              className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCreateMesa() }}
+              autoFocus
+              className="col-span-2 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none"
             />
           </div>
-          <Button type="button" onClick={handleCreateMesa} disabled={!newNumero}>Crear mesa</Button>
+          <div className="flex gap-2">
+            <Button type="button" onClick={handleCreateMesa} disabled={!newNumero}>Abrir cuenta</Button>
+            <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>Cancelar</Button>
+          </div>
         </div>
       )}
 
       {loading ? (
         <p className="text-center text-sm text-zinc-500">Cargando...</p>
       ) : mesas.length === 0 ? (
-        <p className="text-center text-sm text-zinc-600">No hay mesas configuradas</p>
+        <div className="rounded-2xl border border-dashed border-zinc-800 p-8 text-center">
+          <p className="text-sm text-zinc-400">No hay cuentas abiertas</p>
+          <p className="mt-1 text-xs text-zinc-600">Tocá "Nueva cuenta" para abrir una</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {mesas.map((mesa) => {
             const comanda = mesa.comandas.find((c) => c.status === 'ABIERTA')
             const itemCount = comanda?.items.length ?? 0

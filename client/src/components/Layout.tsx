@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 const adminLinks = [
   { to: '/dashboard',   label: 'Inicio'      },
   { to: '/venta',       label: 'Venta'       },
+  { to: '/mesas',       label: 'Cuentas'     },
   { to: '/ventas',      label: 'Ventas'      },
   { to: '/ranking',     label: 'Ranking'     },
   { to: '/ordenes',     label: 'Compras'     },
@@ -19,6 +20,7 @@ const adminLinks = [
 const userLinks = [
   { to: '/stock',           label: 'Stock'     },
   { to: '/venta',           label: 'Venta'     },
+  { to: '/mesas',           label: 'Cuentas'   },
   { to: '/salida',          label: 'Salida'    },
   { to: '/mis-movimientos', label: 'Historial' },
 ]

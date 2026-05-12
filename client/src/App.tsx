@@ -67,6 +67,7 @@ export default function App() {
           <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route path="/stock" element={<StockView />} />
             <Route path="/venta" element={<RegisterVenta />} />
+            <Route path="/mesas" element={<Mesas />} />
             <Route path="/salida" element={<RegisterSalida />} />
             <Route path="/mis-movimientos" element={<MyMovements />} />
           </Route>
