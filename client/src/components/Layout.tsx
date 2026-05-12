@@ -2,27 +2,27 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const adminLinks = [
-  { to: '/dashboard',   label: 'Inicio'      },
-  { to: '/venta',       label: 'Venta'       },
-  { to: '/mesas',       label: 'Cuentas'     },
-  { to: '/ventas',      label: 'Ventas'      },
-  { to: '/ranking',     label: 'Ranking'     },
-  { to: '/ordenes',     label: 'Compras'     },
-  { to: '/resumen',     label: 'Resumen'     },
-  { to: '/tragos',      label: 'Tragos'      },
-  { to: '/botellas',    label: 'Botellas'    },
-  { to: '/productos',   label: 'Productos'   },
-  { to: '/movimientos', label: 'Movimientos' },
-  { to: '/clientes',    label: 'Clientes'    },
-  { to: '/usuarios',    label: 'Usuarios'    },
+  { to: '/dashboard',   label: 'Inicio'        },
+  { to: '/venta',       label: 'Cobrar'        },
+  { to: '/mesas',       label: 'Mesas'         },
+  { to: '/ventas',      label: 'Historial'     },
+  { to: '/ranking',     label: 'Más vendidos'  },
+  { to: '/ordenes',     label: 'Pedidos'       },
+  { to: '/resumen',     label: 'Ganancias'     },
+  { to: '/tragos',      label: 'Tragos'        },
+  { to: '/botellas',    label: 'Botellas'      },
+  { to: '/productos',   label: 'Productos'     },
+  { to: '/movimientos', label: 'Inventario'    },
+  { to: '/clientes',    label: 'Clientes'      },
+  { to: '/usuarios',    label: 'Empleados'     },
 ]
 
 const userLinks = [
-  { to: '/stock',           label: 'Stock'     },
-  { to: '/venta',           label: 'Venta'     },
-  { to: '/mesas',           label: 'Cuentas'   },
-  { to: '/salida',          label: 'Salida'    },
-  { to: '/mis-movimientos', label: 'Historial' },
+  { to: '/stock',           label: 'Ver stock'      },
+  { to: '/venta',           label: 'Cobrar'         },
+  { to: '/mesas',           label: 'Mesas'          },
+  { to: '/salida',          label: 'Consumo interno'},
+  { to: '/mis-movimientos', label: 'Mi historial'   },
 ]
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
