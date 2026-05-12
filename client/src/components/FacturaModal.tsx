@@ -86,7 +86,7 @@ export default function FacturaModal({ sale, onClose }: { sale: Sale; onClose: (
             <img
               src="/logo.png"
               alt="FAGU Drink Bar"
-              className="h-16 w-16 rounded-full object-cover mb-2"
+              className="h-28 w-28 rounded-full object-cover mb-2"
               onError={(e) => {
                 // fallback al texto si falla la carga
                 const img = e.target as HTMLImageElement
