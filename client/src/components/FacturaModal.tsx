@@ -99,8 +99,8 @@ export default function FacturaModal({ sale, onClose }: { sale: Sale; onClose: (
               <p className="text-2xl font-black tracking-wider">FAGU</p>
               <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Drink Bar</p>
             </div>
-            <p className="mt-2 text-xs font-bold text-zinc-900">{EMISOR.razonSocial}</p>
-            <p className="text-xs text-zinc-700">{EMISOR.nombreFantasia}</p>
+            <p className="text-sm font-semibold text-zinc-800 mt-2">{EMISOR.nombreFantasia}</p>
+            <p className="text-[11px] text-zinc-500">{EMISOR.razonSocial}</p>
             <p className="text-xs text-zinc-700 mt-1">CUIT: {EMISOR.cuit}</p>
             <p className="text-xs text-zinc-700">Ing. Brutos: {EMISOR.ingresosBrutos}</p>
             <p className="text-xs text-zinc-700">{EMISOR.condicionIVA}</p>
