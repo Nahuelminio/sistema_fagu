@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { z } from 'zod'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
+import { calcularCostoPromedioPonderado } from '../utils/weightedAverageCost'
 
 // ── Proveedores ───────────────────────────────────────────────────────────────
 
@@ -128,6 +129,20 @@ export async function recibirOrden(req: AuthRequest, res: Response): Promise<voi
       const qty = received ? (received[String(item.id)] ?? Number(item.quantity)) : Number(item.quantity)
       if (qty <= 0) continue
 
+      // Leer estado actual del producto para calcular el nuevo costo promedio
+      const product = await tx.product.findUnique({
+        where: { id: item.productId },
+        select: { currentStock: true, costPrice: true },
+      })
+      if (!product) continue
+
+      const nuevoCosto = calcularCostoPromedioPonderado({
+        stockActual:   Number(product.currentStock),
+        costoActual:   product.costPrice == null ? null : Number(product.costPrice),
+        cantidadNueva: qty,
+        costoNuevo:    item.unitCost == null ? null : Number(item.unitCost),
+      })
+
       await tx.stockMovement.create({
         data: {
           productId: item.productId,
@@ -138,10 +153,15 @@ export async function recibirOrden(req: AuthRequest, res: Response): Promise<voi
           notes: `Orden de compra #${orden.id}`,
         },
       })
+
       await tx.product.update({
         where: { id: item.productId },
-        data: { currentStock: { increment: qty } },
+        data: {
+          currentStock: { increment: qty },
+          ...(nuevoCosto != null ? { costPrice: nuevoCosto } : {}),
+        },
       })
+
       await tx.ordenItem.update({
         where: { id: item.id },
         data: { received: qty },

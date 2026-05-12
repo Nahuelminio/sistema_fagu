@@ -3,6 +3,7 @@ import { z } from 'zod'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
 import { broadcastCatalogUpdate } from '../services/sse.service'
+import { calcularCostoPromedioPonderado } from '../utils/weightedAverageCost'
 
 const ingresoSchema = z.object({
   productId: z.number().int().positive(),
@@ -27,6 +28,20 @@ export async function registerIngreso(req: AuthRequest, res: Response): Promise<
   const { productId, quantity, unitCost, notes } = parsed.data
 
   const result = await prisma.$transaction(async (tx) => {
+    // Estado actual para calcular costo promedio ponderado
+    const product = await tx.product.findUnique({
+      where: { id: productId },
+      select: { currentStock: true, costPrice: true },
+    })
+    if (!product) throw new Error('Producto no encontrado')
+
+    const nuevoCosto = calcularCostoPromedioPonderado({
+      stockActual:   Number(product.currentStock),
+      costoActual:   product.costPrice == null ? null : Number(product.costPrice),
+      cantidadNueva: quantity,
+      costoNuevo:    unitCost ?? null,
+    })
+
     const movement = await tx.stockMovement.create({
       data: {
         productId,
@@ -44,11 +59,14 @@ export async function registerIngreso(req: AuthRequest, res: Response): Promise<
 
     const updated = await tx.product.update({
       where: { id: productId },
-      data: { currentStock: { increment: quantity } },
-      select: { currentStock: true },
+      data: {
+        currentStock: { increment: quantity },
+        ...(nuevoCosto != null ? { costPrice: nuevoCosto } : {}),
+      },
+      select: { currentStock: true, costPrice: true },
     })
 
-    return { movement, currentStock: updated.currentStock }
+    return { movement, currentStock: updated.currentStock, costPrice: updated.costPrice }
   })
 
   broadcastCatalogUpdate()
