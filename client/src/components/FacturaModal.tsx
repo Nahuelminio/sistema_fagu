@@ -86,7 +86,7 @@ export default function FacturaModal({ sale, onClose }: { sale: Sale; onClose: (
             <img
               src="/logo.png"
               alt="FAGU Drink Bar"
-              className="h-28 w-28 rounded-full object-cover mb-2"
+              className="h-40 w-40 rounded-full object-cover mb-2"
               onError={(e) => {
                 // fallback al texto si falla la carga
                 const img = e.target as HTMLImageElement
@@ -100,11 +100,11 @@ export default function FacturaModal({ sale, onClose }: { sale: Sale; onClose: (
               <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Drink Bar</p>
             </div>
             <p className="text-sm font-semibold text-zinc-800 mt-2">{EMISOR.nombreFantasia}</p>
-            <p className="text-[11px] text-zinc-500">{EMISOR.razonSocial}</p>
-            <p className="text-xs text-zinc-700 mt-1">CUIT: {EMISOR.cuit}</p>
-            <p className="text-xs text-zinc-700">Ing. Brutos: {EMISOR.ingresosBrutos}</p>
-            <p className="text-xs text-zinc-700">{EMISOR.condicionIVA}</p>
-            <p className="text-xs text-zinc-700 mt-1">{EMISOR.domicilio}</p>
+            <p className="text-[10px] text-zinc-500">{EMISOR.razonSocial}</p>
+            <p className="text-[10px] text-zinc-600 mt-1">CUIT: {EMISOR.cuit}</p>
+            <p className="text-[10px] text-zinc-600">Ing. Brutos: {EMISOR.ingresosBrutos}</p>
+            <p className="text-[10px] text-zinc-600">{EMISOR.condicionIVA}</p>
+            <p className="text-[10px] text-zinc-600 mt-1">{EMISOR.domicilio}</p>
           </div>
 
           {/* Centro: letra B */}
