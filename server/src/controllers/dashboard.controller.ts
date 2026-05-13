@@ -42,9 +42,9 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
       },
     }),
 
-    // Ventas de hoy (count + revenue)
+    // Ventas de hoy (count + revenue) — excluye anuladas
     prisma.sale.findMany({
-      where: { createdAt: { gte: today } },
+      where: { createdAt: { gte: today }, anulada: false },
       select: { total: true },
     }),
 
@@ -54,28 +54,28 @@ export async function getDashboard(_req: AuthRequest, res: Response): Promise<vo
       select: { quantity: true, unitCost: true },
     }),
 
-    // Ventas del mes
+    // Ventas del mes — excluye anuladas
     prisma.sale.findMany({
-      where: { createdAt: { gte: monthStart } },
+      where: { createdAt: { gte: monthStart }, anulada: false },
       select: { total: true },
     }),
 
-    // Ventas de los últimos 7 días
+    // Ventas de los últimos 7 días — excluye anuladas
     prisma.sale.findMany({
-      where: { createdAt: { gte: weekStart } },
+      where: { createdAt: { gte: weekStart }, anulada: false },
       select: { total: true, createdAt: true },
     }),
 
-    // Top productos/tragos del mes (por cantidad vendida)
+    // Top productos/tragos del mes — excluye anuladas
     prisma.saleItem.findMany({
-      where: { sale: { createdAt: { gte: monthStart } } },
+      where: { sale: { createdAt: { gte: monthStart }, anulada: false } },
       select: { nombre: true, quantity: true, unitPrice: true, productId: true, tragoId: true },
     }),
 
-    // Ventas por método de pago del mes
+    // Ventas por método de pago del mes — excluye anuladas
     prisma.sale.groupBy({
       by: ['paymentMethod'],
-      where: { createdAt: { gte: monthStart } },
+      where: { createdAt: { gte: monthStart }, anulada: false },
       _count: { id: true },
       _sum: { total: true },
     }),
@@ -172,7 +172,7 @@ export async function getCierreCaja(req: AuthRequest, res: Response): Promise<vo
 
   const [ventas, paymentRaw, topItemsRaw] = await Promise.all([
     prisma.sale.findMany({
-      where: { createdAt: { gte: from, lte: to } },
+      where: { createdAt: { gte: from, lte: to }, anulada: false },
       include: {
         items: { select: { nombre: true, quantity: true, unitPrice: true } },
         user:  { select: { name: true } },
@@ -182,13 +182,13 @@ export async function getCierreCaja(req: AuthRequest, res: Response): Promise<vo
 
     prisma.sale.groupBy({
       by: ['paymentMethod'],
-      where: { createdAt: { gte: from, lte: to } },
+      where: { createdAt: { gte: from, lte: to }, anulada: false },
       _count: { id: true },
       _sum:   { total: true },
     }),
 
     prisma.saleItem.findMany({
-      where: { sale: { createdAt: { gte: from, lte: to } } },
+      where: { sale: { createdAt: { gte: from, lte: to }, anulada: false } },
       select: { nombre: true, quantity: true, unitPrice: true, productId: true, tragoId: true },
     }),
   ])

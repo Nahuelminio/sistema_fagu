@@ -102,6 +102,11 @@ model Sale {
   nroFactura     Int?
   puntoVenta     Int?
   createdAt      DateTime      @default(now())
+  // Anulación (admin)
+  anulada            Boolean   @default(false)
+  anuladaAt          DateTime?
+  anuladaPorUserId   Int?
+  motivoAnulacion    String?
   items          SaleItem[]
 }
 

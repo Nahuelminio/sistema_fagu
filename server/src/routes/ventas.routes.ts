@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { createVenta, getVentas, getRanking, exportVentasCSV } from '../controllers/ventas.controller'
+import { createVenta, getVentas, getRanking, exportVentasCSV, anularVenta } from '../controllers/ventas.controller'
 import { authenticate } from '../middlewares/auth.middleware'
 import { requireAdmin } from '../middlewares/role.middleware'
 import { asyncHandler } from '../utils/asyncHandler'
@@ -11,5 +11,6 @@ router.post('/',          asyncHandler(createVenta))
 router.get('/',           requireAdmin, asyncHandler(getVentas))
 router.get('/ranking',    requireAdmin, asyncHandler(getRanking))
 router.get('/export',     requireAdmin, asyncHandler(exportVentasCSV))
+router.post('/:id/anular', requireAdmin, asyncHandler(anularVenta))
 
 export default router

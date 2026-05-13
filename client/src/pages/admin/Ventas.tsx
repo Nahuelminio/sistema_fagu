@@ -19,19 +19,47 @@ function formatDate(iso: string) {
   })
 }
 
-function VentaCard({ venta }: { venta: Sale }) {
+function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
   const [open, setOpen] = useState(false)
   const [showFactura, setShowFactura] = useState(false)
   const hasFactura = !!venta.cae
+  const isAnulada  = !!venta.anulada
+
+  async function handleAnular() {
+    const motivo = window.prompt('Motivo de anulación:')
+    if (!motivo || motivo.trim().length < 3) {
+      alert('Tenés que escribir un motivo de al menos 3 caracteres')
+      return
+    }
+    const extra = hasFactura
+      ? '\n\nATENCIÓN: la factura ya fue emitida en ARCA. Anular acá solo lo marca internamente — la factura sigue legalmente emitida. Para anular en ARCA tenés que emitir una Nota de Crédito.'
+      : ''
+    if (!confirm(`¿Anular venta #${venta.id} por "${motivo}"?${extra}`)) return
+
+    try {
+      await api.post(`/ventas/${venta.id}/anular`, { motivo })
+      onAnular()
+    } catch (err: any) {
+      alert(err?.response?.data?.error ?? 'Error al anular')
+    }
+  }
+
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900">
+    <div className={`rounded-2xl border ${isAnulada ? 'border-red-900/40 bg-red-950/20 opacity-70' : 'border-zinc-800 bg-zinc-900'}`}>
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-zinc-100">Venta #{venta.id}</p>
+            <p className={`text-sm font-semibold ${isAnulada ? 'text-zinc-500 line-through' : 'text-zinc-100'}`}>
+              Venta #{venta.id}
+            </p>
+            {isAnulada && (
+              <span className="rounded-full bg-red-500/20 border border-red-500/40 px-2 py-0.5 text-xs text-red-300 font-medium">
+                Anulada
+              </span>
+            )}
             {venta.cliente && (
               <span className="rounded-full bg-zinc-800 border border-zinc-700 px-2 py-0.5 text-xs text-zinc-300">
                 {venta.cliente.nombre}
@@ -49,7 +77,9 @@ function VentaCard({ venta }: { venta: Sale }) {
         </div>
         <div className="flex items-center gap-2 ml-2 shrink-0">
           <Badge label={PAYMENT_LABELS[venta.paymentMethod as PaymentMethod]} color="gray" />
-          <span className="font-semibold text-brand-400">{formatARS(Number(venta.total))}</span>
+          <span className={`font-semibold ${isAnulada ? 'text-zinc-600 line-through' : 'text-brand-400'}`}>
+            {formatARS(Number(venta.total))}
+          </span>
           <span className="text-xs text-zinc-600">{open ? '▲' : '▼'}</span>
         </div>
       </button>
@@ -106,6 +136,31 @@ function VentaCard({ venta }: { venta: Sale }) {
                   )}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Motivo de anulación */}
+          {isAnulada && (
+            <div className="mt-3 rounded-xl border border-red-500/30 bg-red-950/30 px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-widest text-red-400">Venta anulada</p>
+              {venta.anuladaAt && (
+                <p className="text-xs text-zinc-400 mt-1">El {formatDate(venta.anuladaAt)}</p>
+              )}
+              {venta.motivoAnulacion && (
+                <p className="text-xs text-zinc-300 mt-1 italic">"{venta.motivoAnulacion}"</p>
+              )}
+            </div>
+          )}
+
+          {/* Botón anular — solo si no está ya anulada */}
+          {!isAnulada && (
+            <div className="mt-3 border-t border-zinc-800 pt-3 flex justify-end">
+              <button
+                onClick={handleAnular}
+                className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-950/60 transition"
+              >
+                Anular venta
+              </button>
             </div>
           )}
         </div>
@@ -238,7 +293,7 @@ export default function Ventas() {
         <p className="text-center text-sm text-zinc-500">No hay ventas en este período</p>
       ) : (
         <div className="flex flex-col gap-2">
-          {data?.ventas.map((v) => <VentaCard key={v.id} venta={v} />)}
+          {data?.ventas.map((v) => <VentaCard key={v.id} venta={v} onAnular={() => load(page)} />)}
         </div>
       )}
 

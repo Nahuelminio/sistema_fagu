@@ -298,15 +298,15 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
 
 export async function getRanking(req: AuthRequest, res: Response): Promise<void> {
   const { from, to } = req.query
-  const where: Record<string, unknown> = {}
+  // Filtro base: solo ventas no anuladas
+  const saleFilter: Record<string, unknown> = { anulada: false }
   if (from || to) {
-    where.sale = {
-      createdAt: {
-        ...(from ? { gte: new Date(from as string) } : {}),
-        ...(to   ? { lte: new Date(to   as string) } : {}),
-      },
+    saleFilter.createdAt = {
+      ...(from ? { gte: new Date(from as string) } : {}),
+      ...(to   ? { lte: new Date(to   as string) } : {}),
     }
   }
+  const where = { sale: saleFilter }
 
   // Agrupar SaleItems
   const items = await prisma.saleItem.findMany({
@@ -445,7 +445,8 @@ export async function getVentas(req: AuthRequest, res: Response): Promise<void> 
     prisma.sale.count({ where }),
   ])
 
-  const totalRevenue = ventas.reduce((sum, v) => sum + Number(v.total), 0)
+  // Total revenue excluye anuladas
+  const totalRevenue = ventas.reduce((sum, v) => v.anulada ? sum : sum + Number(v.total), 0)
 
   res.json({ ventas, total, page: pageNum, pages: Math.ceil(total / limitNum), totalRevenue })
 }
@@ -501,4 +502,113 @@ export async function exportVentasCSV(req: AuthRequest, res: Response): Promise<
   res.setHeader('Content-Type', 'text/csv; charset=utf-8')
   res.setHeader('Content-Disposition', `attachment; filename="ventas-${Date.now()}.csv"`)
   res.send('﻿' + csv) // BOM para Excel
+}
+
+const anularSchema = z.object({
+  motivo: z.string().min(3, 'Indicá un motivo (mínimo 3 caracteres)'),
+})
+
+/**
+ * Anula una venta — solo admin.
+ * - Marca como anulada=true, guarda motivo + usuario + fecha.
+ * - Revierte stock: productos directos al currentStock, tragos al BotellaActiva
+ *   (si hay una abierta) o se loguea como ajuste si no hay donde restituir.
+ * - Las facturas con CAE quedan registradas en ARCA — solo se anula internamente.
+ *   Para anular en ARCA hay que emitir Nota de Crédito (proceso aparte).
+ */
+export async function anularVenta(req: AuthRequest, res: Response): Promise<void> {
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  const parsed = anularSchema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.errors[0]?.message ?? 'Datos inválidos' })
+    return
+  }
+
+  const sale = await prisma.sale.findUnique({
+    where: { id },
+    include: {
+      items: { include: { product: { select: { id: true, name: true, bottleSize: true } } } },
+    },
+  })
+  if (!sale) { res.status(404).json({ error: 'Venta no encontrada' }); return }
+  if (sale.anulada) { res.status(400).json({ error: 'La venta ya está anulada' }); return }
+
+  await prisma.$transaction(async (tx) => {
+    // 1) Marcar venta como anulada
+    await tx.sale.update({
+      where: { id },
+      data: {
+        anulada:          true,
+        anuladaAt:        new Date(),
+        anuladaPorUserId: req.user!.userId,
+        motivoAnulacion:  parsed.data.motivo,
+      },
+    })
+
+    // 2) Revertir stock por cada item
+    for (const item of sale.items) {
+      const qty = Number(item.quantity)
+
+      if (item.productId) {
+        // Producto directo: devolver al stock
+        await tx.product.update({
+          where: { id: item.productId },
+          data:  { currentStock: { increment: qty } },
+        })
+        await tx.stockMovement.create({
+          data: {
+            productId: item.productId,
+            userId:    req.user!.userId,
+            type:      'INGRESO',
+            quantity:  qty,
+            notes:     `Anulación venta #${sale.id}: ${parsed.data.motivo}`,
+          },
+        })
+      } else if (item.tragoId) {
+        // Trago: revertir oz a cada ingrediente
+        const trago = await tx.trago.findUnique({
+          where: { id: item.tragoId },
+          include: { ingredientes: { include: { product: true } } },
+        })
+        if (!trago) continue
+        for (const ing of trago.ingredientes) {
+          const ozTotales = Number(ing.cantidad) * qty
+          const botella = await tx.botellaActiva.findUnique({ where: { productId: ing.productId } })
+          if (botella) {
+            // Restituir oz a la botella abierta, sin pasarse de la capacidad
+            const nuevoRestante = Math.min(Number(botella.capacidad), Number(botella.restante) + ozTotales)
+            await tx.botellaActiva.update({
+              where: { id: botella.id },
+              data:  { restante: nuevoRestante },
+            })
+            await tx.stockMovement.create({
+              data: {
+                productId: ing.productId,
+                userId:    req.user!.userId,
+                type:      'AJUSTE',
+                quantity:  ozTotales,
+                notes:     `Anulación venta #${sale.id}: ${ozTotales.toFixed(2)} oz restituidos a botella (${ing.product.name})`,
+              },
+            })
+          } else {
+            // No hay botella abierta: registrar el ajuste sin restituir stock
+            await tx.stockMovement.create({
+              data: {
+                productId: ing.productId,
+                userId:    req.user!.userId,
+                type:      'AJUSTE',
+                quantity:  ozTotales,
+                notes:     `Anulación venta #${sale.id}: ${ozTotales.toFixed(2)} oz de ${ing.product.name} NO restituidos (sin botella abierta)`,
+              },
+            })
+          }
+        }
+      }
+    }
+  }, { timeout: 20000 })
+
+  broadcastCatalogUpdate()
+  res.json({ ok: true, mensaje: 'Venta anulada y stock revertido' })
 }

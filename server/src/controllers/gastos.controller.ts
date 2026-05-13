@@ -25,15 +25,15 @@ export async function getResumenMensual(req: AuthRequest, res: Response): Promis
   const to   = new Date(year, month, 0, 23, 59, 59, 999)
 
   const [ventas, saleItems, gastos] = await Promise.all([
-    // Ventas del mes
+    // Ventas del mes (excluye anuladas)
     prisma.sale.findMany({
-      where: { createdAt: { gte: from, lte: to } },
+      where: { createdAt: { gte: from, lte: to }, anulada: false },
       select: { total: true },
     }),
 
-    // Items vendidos ese mes
+    // Items vendidos ese mes (excluye anuladas)
     prisma.saleItem.findMany({
-      where: { sale: { createdAt: { gte: from, lte: to } } },
+      where: { sale: { createdAt: { gte: from, lte: to }, anulada: false } },
       select: { productId: true, tragoId: true, quantity: true },
     }),
 

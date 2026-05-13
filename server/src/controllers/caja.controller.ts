@@ -29,9 +29,9 @@ export async function getCajaActual(_req: AuthRequest, res: Response): Promise<v
     return
   }
 
-  // Ventas asociadas a esta caja específicamente (por cajaId)
+  // Ventas asociadas a esta caja (excluye anuladas)
   const ventas = await prisma.sale.findMany({
-    where:  { cajaId: caja.id },
+    where:  { cajaId: caja.id, anulada: false },
     select: { total: true, paymentMethod: true },
   })
 
@@ -115,7 +115,7 @@ export async function cerrarCaja(req: AuthRequest, res: Response): Promise<void>
       }
 
       const ventas = await tx.sale.findMany({
-        where:  { cajaId: caja.id, paymentMethod: 'EFECTIVO' },
+        where:  { cajaId: caja.id, paymentMethod: 'EFECTIVO', anulada: false },
         select: { total: true },
       })
       const efectivoVentas   = ventas.reduce((s, v) => s + Number(v.total), 0)

@@ -134,6 +134,9 @@ export interface Sale {
   nroFactura?: number | null
   puntoVenta?: number | null
   cliente?: { id: number; nombre: string; cuit?: string | null; dni?: string | null } | null
+  anulada?: boolean
+  anuladaAt?: string | null
+  motivoAnulacion?: string | null
 }
 
 export interface VentasResponse {
