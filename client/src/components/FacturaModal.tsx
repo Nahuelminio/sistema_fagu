@@ -82,11 +82,11 @@ export default function FacturaModal({ sale, onClose }: { sale: Sale; onClose: (
       >
         {/* Header con tipo de comprobante */}
         <div className="grid grid-cols-3 border-b-2 border-zinc-300">
-          <div className="p-5">
+          <div className="p-5 flex flex-col items-center text-center">
             <img
               src="/logo.png"
               alt="FAGU Drink Bar"
-              className="h-40 w-40 rounded-full object-cover mb-2"
+              className="h-40 w-40 rounded-full object-cover"
               onError={(e) => {
                 // fallback al texto si falla la carga
                 const img = e.target as HTMLImageElement
@@ -97,14 +97,14 @@ export default function FacturaModal({ sale, onClose }: { sale: Sale; onClose: (
             />
             <div style={{ display: 'none' }}>
               <p className="text-2xl font-black tracking-wider">FAGU</p>
-              <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Drink Bar</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600">Drink Bar</p>
             </div>
-            <p className="text-sm font-semibold text-zinc-800 mt-2">{EMISOR.nombreFantasia}</p>
-            <p className="text-[10px] text-zinc-500">{EMISOR.razonSocial}</p>
-            <p className="text-[10px] text-zinc-600 mt-1">CUIT: {EMISOR.cuit}</p>
-            <p className="text-[10px] text-zinc-600">Ing. Brutos: {EMISOR.ingresosBrutos}</p>
-            <p className="text-[10px] text-zinc-600">{EMISOR.condicionIVA}</p>
-            <p className="text-[10px] text-zinc-600 mt-1">{EMISOR.domicilio}</p>
+            <p className="text-xs font-semibold text-zinc-800 mt-2">{EMISOR.nombreFantasia}</p>
+            <p className="text-[9px] text-zinc-500">{EMISOR.razonSocial}</p>
+            <p className="text-[9px] text-zinc-600 mt-1">CUIT: {EMISOR.cuit}</p>
+            <p className="text-[9px] text-zinc-600">Ing. Brutos: {EMISOR.ingresosBrutos}</p>
+            <p className="text-[9px] text-zinc-600">{EMISOR.condicionIVA}</p>
+            <p className="text-[9px] text-zinc-600 mt-1">{EMISOR.domicilio}</p>
           </div>
 
           {/* Centro: letra B */}
