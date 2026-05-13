@@ -23,6 +23,7 @@ import mesasRoutes from './routes/mesas.routes'
 import ordenesRoutes from './routes/ordenes.routes'
 import gastosRoutes from './routes/gastos.routes'
 import clientesRoutes from './routes/clientes.routes'
+import cajaRoutes from './routes/caja.routes'
 import { errorHandler } from './middlewares/error.middleware'
 
 const app = express()
@@ -50,6 +51,7 @@ app.use('/api/mesas',      mesasRoutes)
 app.use('/api/ordenes',    ordenesRoutes)
 app.use('/api/gastos',     gastosRoutes)
 app.use('/api/clientes',   clientesRoutes)
+app.use('/api/caja',       cajaRoutes)
 
 app.use(errorHandler)
 

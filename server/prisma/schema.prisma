@@ -39,6 +39,7 @@ model User {
   sales     Sale[]
   comandas  Comanda[]
   ordenes   OrdenCompra[]
+  cajas     Caja[]            @relation("CajaUser")
 }
 
 model Category {
@@ -232,6 +233,27 @@ model GastoMensual {
   monto     Decimal  @db.Decimal(10, 2)
   mes       String   // formato "YYYY-MM"
   createdAt DateTime @default(now())
+}
+
+enum CajaStatus {
+  ABIERTA
+  CERRADA
+}
+
+model Caja {
+  id                Int        @id @default(autoincrement())
+  userId            Int
+  user              User       @relation("CajaUser", fields: [userId], references: [id])
+  fondoInicial      Decimal    @db.Decimal(10, 2)
+  fechaApertura     DateTime   @default(now())
+  fechaCierre       DateTime?
+  // Calculados al cerrar
+  efectivoEsperado  Decimal?   @db.Decimal(10, 2)
+  efectivoContado   Decimal?   @db.Decimal(10, 2)
+  diferencia        Decimal?   @db.Decimal(10, 2)
+  notasApertura     String?
+  notasCierre       String?
+  status            CajaStatus @default(ABIERTA)
 }
 
 model OrdenItem {
