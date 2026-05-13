@@ -230,9 +230,9 @@ export default function Botellas() {
               required
             >
               <option value="">— Seleccioná —</option>
-              {products.map(p => (
+              {products.filter((p) => p.bottleSize).map(p => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({p.unit}) — stock: {Number(p.currentStock)}
+                  {p.name} — stock: {Number(p.currentStock)} botellas
                 </option>
               ))}
             </select>

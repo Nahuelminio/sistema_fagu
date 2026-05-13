@@ -53,8 +53,12 @@ export async function deleteCliente(req: AuthRequest, res: Response): Promise<vo
   const id = parseId(req.params.id)
   if (!id) { res.status(400).json({ error: 'ID inválido' }); return }
 
+  // Desasociar el cliente de las ventas antes de borrarlo (preserva el historial)
   try {
-    await prisma.cliente.delete({ where: { id } })
+    await prisma.$transaction(async (tx) => {
+      await tx.sale.updateMany({ where: { clienteId: id }, data: { clienteId: null } })
+      await tx.cliente.delete({ where: { id } })
+    })
     res.json({ ok: true })
   } catch (e: any) {
     if (e.code === 'P2025') { res.status(404).json({ error: 'Cliente no encontrado' }); return }

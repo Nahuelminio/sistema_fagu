@@ -344,7 +344,7 @@ export async function getRanking(req: AuthRequest, res: Response): Promise<void>
               include: {
                 product: {
                   select: {
-                    id: true, costPrice: true,
+                    id: true, costPrice: true, bottleSize: true,
                     botellaActiva: { select: { capacidad: true } },
                   },
                 },
@@ -368,7 +368,8 @@ export async function getRanking(req: AuthRequest, res: Response): Promise<void>
       if (t) {
         cost = t.ingredientes.reduce((sum, ing) => {
           const precio    = Number(ing.product.costPrice ?? 0)
-          const capacidad = Number(ing.product.botellaActiva?.capacidad ?? 0)
+          // Fallback: si no hay botella abierta, usa bottleSize del producto
+          const capacidad = Number(ing.product.botellaActiva?.capacidad ?? ing.product.bottleSize ?? 0)
           const ozCost    = capacidad > 0 ? precio / capacidad : 0
           return sum + Number(ing.cantidad) * ozCost
         }, 0)

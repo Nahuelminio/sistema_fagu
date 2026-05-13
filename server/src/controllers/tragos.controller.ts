@@ -20,7 +20,7 @@ const tragoInclude = {
     include: {
       product: {
         select: {
-          id: true, name: true, unit: true, currentStock: true, costPrice: true,
+          id: true, name: true, unit: true, currentStock: true, costPrice: true, bottleSize: true,
           botellaActiva: { select: { capacidad: true } },
         },
       },
@@ -98,6 +98,22 @@ export async function updateTrago(req: AuthRequest, res: Response): Promise<void
 
 export async function deleteTrago(req: AuthRequest, res: Response): Promise<void> {
   const id = parseInt(req.params.id)
-  await prisma.trago.delete({ where: { id } })
-  res.status(204).send()
+  if (isNaN(id)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  // Si el trago ya fue vendido, hacer soft-delete (marcarlo inactivo)
+  // para preservar el historial de ventas. Sino, eliminarlo del todo.
+  const sold = await prisma.saleItem.count({ where: { tragoId: id } })
+  if (sold > 0) {
+    await prisma.trago.update({ where: { id }, data: { active: false } })
+    res.json({ ok: true, softDeleted: true })
+    return
+  }
+
+  try {
+    await prisma.trago.delete({ where: { id } })
+    res.status(204).send()
+  } catch (e: any) {
+    if (e.code === 'P2025') { res.status(404).json({ error: 'Trago no encontrado' }); return }
+    throw e
+  }
 }

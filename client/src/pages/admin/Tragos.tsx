@@ -168,7 +168,8 @@ export default function Tragos() {
           let costoCompleto = true
           for (const ing of t.ingredientes) {
             const precio = Number(ing.product.costPrice ?? 0)
-            const cap    = Number(ing.product.botellaActiva?.capacidad ?? 0)
+            // Fallback: si no hay botella abierta, usa bottleSize del producto
+            const cap    = Number(ing.product.botellaActiva?.capacidad ?? ing.product.bottleSize ?? 0)
             if (!ing.product.costPrice || !cap) { costoCompleto = false; break }
             costoTotal += Number(ing.cantidad) * (precio / cap)
           }
@@ -210,7 +211,7 @@ export default function Tragos() {
                   <div className="mt-2 flex flex-col gap-1">
                     {t.ingredientes.map((ing) => {
                       const precio = Number(ing.product.costPrice ?? 0)
-                      const cap    = Number(ing.product.botellaActiva?.capacidad ?? 0)
+                      const cap    = Number(ing.product.botellaActiva?.capacidad ?? ing.product.bottleSize ?? 0)
                       const costoParcial = precio && cap
                         ? Number(ing.cantidad) * (precio / cap)
                         : null

@@ -83,6 +83,7 @@ export interface TragoBotella {
   cantidad: string
   product: {
     id: number; name: string; unit: string; currentStock: string; costPrice: string | null
+    bottleSize: string | null
     botellaActiva: { capacidad: string } | null
   }
 }
