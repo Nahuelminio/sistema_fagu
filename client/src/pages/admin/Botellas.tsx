@@ -239,7 +239,10 @@ export default function Botellas() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-400">Tamaño de botella</label>
+            <label className="text-xs text-zinc-400">Tamaño de esta botella</label>
+            <p className="text-[11px] text-zinc-600 -mt-0.5 mb-1">
+              Podés abrir cualquier tamaño — los tragos funcionan igual, consumen los oz que necesitan
+            </p>
             <div className="grid grid-cols-2 gap-2">
               {PRESETS.map((preset, i) => (
                 <button
