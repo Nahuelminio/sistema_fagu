@@ -155,12 +155,19 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
   const subtotal = totalProductos + totalTragos
   const total    = Math.max(0, subtotal - discount)
 
+  // Buscar caja abierta (si la hay) para asociar la venta
+  const cajaAbierta = await prisma.caja.findFirst({
+    where:  { status: 'ABIERTA' },
+    select: { id: true },
+  })
+
   const sale = await prisma.$transaction(
     async (tx) => {
       const newSale = await tx.sale.create({
         data: {
           userId: req.user!.userId,
           clienteId: clienteId ?? null,
+          cajaId: cajaAbierta?.id ?? null,
           subtotal,
           discount,
           total,

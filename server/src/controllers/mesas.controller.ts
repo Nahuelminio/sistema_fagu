@@ -266,6 +266,12 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
     }
   }
 
+  // Buscar caja abierta para asociar la venta
+  const cajaAbierta = await prisma.caja.findFirst({
+    where:  { status: 'ABIERTA' },
+    select: { id: true },
+  })
+
   // Importar la lógica de createVenta sería complejo; llamamos directamente con prisma
   // Crear la venta y cerrar la comanda en una transacción
   const sale = await prisma.$transaction(async (tx) => {
@@ -273,6 +279,7 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
       data: {
         userId: req.user!.userId,
         ...(clienteId ? { clienteId } : {}),
+        ...(cajaAbierta ? { cajaId: cajaAbierta.id } : {}),
         subtotal,
         discount,
         total,

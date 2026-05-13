@@ -90,6 +90,8 @@ model Sale {
   user           User          @relation(fields: [userId], references: [id])
   clienteId      Int?
   cliente        Cliente?      @relation(fields: [clienteId], references: [id])
+  cajaId         Int?
+  caja           Caja?         @relation(fields: [cajaId], references: [id])
   subtotal       Decimal       @db.Decimal(10, 2) @default(0)
   discount       Decimal       @db.Decimal(10, 2) @default(0)
   total          Decimal       @db.Decimal(10, 2)
@@ -254,6 +256,7 @@ model Caja {
   notasApertura     String?
   notasCierre       String?
   status            CajaStatus @default(ABIERTA)
+  sales             Sale[]
 }
 
 model OrdenItem {

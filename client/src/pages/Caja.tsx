@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../lib/api'
 import Button from '../components/ui/Button'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 
 const ARS = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -45,6 +46,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 export default function Caja() {
   const { showToast } = useToast()
+  const { isAdmin } = useAuth()
   const [caja, setCaja]               = useState<CajaActual | null>(null)
   const [historial, setHistorial]     = useState<CajaCerrada[]>([])
   const [loading, setLoading]         = useState(true)
@@ -59,16 +61,30 @@ export default function Caja() {
   async function load() {
     setLoading(true)
     try {
-      const [act, hist] = await Promise.all([
+      const promesas: [Promise<{ data: CajaActual | null }>, Promise<{ data: CajaCerrada[] }>?] = [
         api.get<CajaActual | null>('/caja/actual'),
-        api.get<CajaCerrada[]>('/caja/historial?limit=15'),
-      ])
+      ]
+      // El historial solo lo pueden ver admins
+      if (isAdmin) promesas[1] = api.get<CajaCerrada[]>('/caja/historial?limit=15')
+
+      const [act, hist] = await Promise.all(promesas as [Promise<{data: CajaActual | null}>, Promise<{data: CajaCerrada[]}>])
       setCaja(act.data)
-      setHistorial(hist.data)
+      setHistorial(hist?.data ?? [])
     } catch {
       showToast('Error al cargar la caja', 'error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleReabrir(id: number) {
+    if (!confirm('¿Reabrir esta caja? Vas a poder volver a cerrarla con los datos correctos.')) return
+    try {
+      await api.post(`/caja/${id}/reabrir`)
+      showToast('Caja reabierta')
+      load()
+    } catch (err: any) {
+      showToast(err?.response?.data?.error ?? 'Error al reabrir', 'error')
     }
   }
 
@@ -229,7 +245,8 @@ export default function Caja() {
         </div>
       )}
 
-      {/* ── HISTORIAL ── */}
+      {/* ── HISTORIAL (solo admin) ── */}
+      {isAdmin && (
       <div>
         <h2 className="text-base font-bold text-zinc-200 mb-3">Historial de cierres</h2>
         {historial.length === 0 ? (
@@ -278,12 +295,22 @@ export default function Caja() {
                       {c.notasCierre && <p>Cierre: "{c.notasCierre}"</p>}
                     </div>
                   )}
+                  {/* Botón reabrir — solo si no hay caja abierta */}
+                  {!caja && (
+                    <button
+                      onClick={() => handleReabrir(c.id)}
+                      className="mt-2 text-xs text-zinc-600 hover:text-brand-400 transition"
+                    >
+                      Reabrir este cierre
+                    </button>
+                  )}
                 </div>
               )
             })}
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }
