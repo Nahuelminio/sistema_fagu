@@ -10,7 +10,7 @@ import { useConfirm } from '../../context/ConfirmContext'
 
 const emptyForm = {
   name: '', categoryId: '', unit: '', minStock: '0',
-  costPrice: '', salePrice: '', bottleSize: '', visibleInCatalog: false,
+  costPrice: '', salePrice: '', bottleSize: '', imageUrl: '', visibleInCatalog: false,
 }
 
 const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
@@ -59,10 +59,21 @@ export default function Products() {
       costPrice: p.costPrice ?? '',
       salePrice: p.salePrice ?? '',
       bottleSize: p.bottleSize ?? '',
+      imageUrl: p.imageUrl ?? '',
       visibleInCatalog: p.visibleInCatalog,
     })
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function handleToggleCatalog(p: Product) {
+    try {
+      const { data } = await api.patch<Product>(`/products/${p.id}/toggle-catalog`)
+      setProducts((prev) => prev.map((x) => x.id === p.id ? data : x))
+      showToast(data.visibleInCatalog ? `"${p.name}" agregado al catálogo` : `"${p.name}" quitado del catálogo`)
+    } catch {
+      showToast('Error al cambiar visibilidad', 'error')
+    }
   }
 
   async function handleSave() {
@@ -75,6 +86,7 @@ export default function Products() {
       costPrice: form.costPrice ? parseFloat(form.costPrice) : undefined,
       salePrice: form.salePrice ? parseFloat(form.salePrice) : undefined,
       bottleSize: form.bottleSize ? parseFloat(form.bottleSize) : null,
+      imageUrl:   form.imageUrl || null,
       visibleInCatalog: form.visibleInCatalog,
     }
     try {
@@ -257,6 +269,22 @@ export default function Products() {
               </p>
             </div>
 
+            <Input
+              label="URL de imagen (opcional)"
+              type="url"
+              value={form.imageUrl}
+              onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+              placeholder="https://..."
+            />
+            {form.imageUrl && (
+              <img
+                src={form.imageUrl}
+                alt="preview"
+                className="h-24 w-24 rounded-xl object-cover border border-zinc-700"
+                onError={(e) => { (e.currentTarget.style.display = 'none') }}
+              />
+            )}
+
             <label className="flex items-center gap-2 text-sm text-zinc-400">
               <input
                 type="checkbox"
@@ -295,7 +323,18 @@ export default function Products() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap justify-end">
+                <button
+                  onClick={() => handleToggleCatalog(p)}
+                  className={`rounded-lg px-2 py-1.5 text-xs transition ${
+                    p.visibleInCatalog
+                      ? 'bg-brand-500/20 text-brand-300 hover:bg-brand-500/30'
+                      : 'text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300'
+                  }`}
+                  title={p.visibleInCatalog ? 'Quitar del catálogo' : 'Mostrar en catálogo'}
+                >
+                  {p.visibleInCatalog ? '✓ En carta' : 'En carta'}
+                </button>
                 <button onClick={() => navigate(`/productos/${p.id}/historial`)} className="rounded-lg px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title="Ver historial">Historial</button>
                 <button onClick={() => openEdit(p)} className="rounded-lg px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">Editar</button>
                 <button onClick={() => handleDelete(p.id)} className="rounded-lg px-2 py-1.5 text-xs text-zinc-600 hover:bg-red-950/50 hover:text-red-400">Eliminar</button>

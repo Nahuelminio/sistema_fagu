@@ -24,6 +24,9 @@ export default function Tragos() {
   const [editing, setEditing]     = useState<Trago | null>(null)
   const [name, setName]           = useState('')
   const [salePrice, setSalePrice] = useState('')
+  const [imageUrl, setImageUrl]   = useState('')
+  const [description, setDescription] = useState('')
+  const [visibleInCatalog, setVisibleInCatalog] = useState(false)
   const [ings, setIngs]           = useState<IngForm[]>([{ productId: '', cantidad: '' }])
   const [saving, setSaving]       = useState(false)
 
@@ -50,6 +53,9 @@ export default function Tragos() {
     setEditing(null)
     setName('')
     setSalePrice('')
+    setImageUrl('')
+    setDescription('')
+    setVisibleInCatalog(false)
     setIngs([{ productId: '', cantidad: '' }])
     setShowForm(true)
   }
@@ -58,8 +64,21 @@ export default function Tragos() {
     setEditing(t)
     setName(t.name)
     setSalePrice(t.salePrice ?? '')
+    setImageUrl(t.imageUrl ?? '')
+    setDescription(t.description ?? '')
+    setVisibleInCatalog(t.visibleInCatalog ?? false)
     setIngs(t.ingredientes.map((i) => ({ productId: String(i.productId), cantidad: String(i.cantidad) })))
     setShowForm(true)
+  }
+
+  async function handleToggleCatalog(t: Trago) {
+    try {
+      const { data } = await api.patch<Trago>(`/tragos/${t.id}/toggle-catalog`)
+      setTragos((prev) => prev.map((x) => x.id === t.id ? data : x))
+      showToast(data.visibleInCatalog ? `"${t.name}" agregado al catálogo` : `"${t.name}" quitado del catálogo`)
+    } catch {
+      showToast('Error al cambiar visibilidad', 'error')
+    }
   }
 
   function addIng() { setIngs((prev) => [...prev, { productId: '', cantidad: '' }]) }
@@ -73,6 +92,9 @@ export default function Tragos() {
     const body = {
       name,
       salePrice: salePrice ? parseFloat(salePrice) : undefined,
+      imageUrl:    imageUrl || null,
+      description: description || '',
+      visibleInCatalog,
       ingredientes: ings
         .filter((i) => i.productId && i.cantidad)
         .map((i) => ({ productId: parseInt(i.productId), cantidad: parseFloat(i.cantidad) })),
@@ -124,6 +146,25 @@ export default function Tragos() {
           <div className="flex flex-col gap-3">
             <Input label="Nombre" value={name} onChange={(e) => setName(e.target.value)} placeholder="Gin Tonic..." />
             <Input label="Precio de venta" type="number" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="0" />
+            <Input label="Descripción para la carta (opcional)" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Refrescante, cítrico..." />
+            <Input label="URL de imagen (opcional)" type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt="preview"
+                className="h-24 w-24 rounded-xl object-cover border border-zinc-700"
+                onError={(e) => { (e.currentTarget.style.display = 'none') }}
+              />
+            )}
+            <label className="flex items-center gap-2 text-sm text-zinc-400">
+              <input
+                type="checkbox"
+                checked={visibleInCatalog}
+                onChange={(e) => setVisibleInCatalog(e.target.checked)}
+                className="accent-brand-500"
+              />
+              Visible en catálogo público
+            </label>
 
             <div>
               <div className="mb-2 flex items-center justify-between">
@@ -247,6 +288,17 @@ export default function Tragos() {
                 </div>
 
                 <div className="flex gap-1 ml-3 shrink-0">
+                  <button
+                    onClick={() => handleToggleCatalog(t)}
+                    className={`rounded-lg px-2 py-1.5 text-xs transition ${
+                      t.visibleInCatalog
+                        ? 'bg-brand-500/20 text-brand-300 hover:bg-brand-500/30'
+                        : 'text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300'
+                    }`}
+                    title={t.visibleInCatalog ? 'Quitar del catálogo' : 'Mostrar en catálogo'}
+                  >
+                    {t.visibleInCatalog ? '✓ En carta' : 'En carta'}
+                  </button>
                   <button onClick={() => openEdit(t)} className="rounded-lg px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">Editar</button>
                   <button onClick={() => handleDelete(t.id)} className="rounded-lg px-2 py-1.5 text-xs text-zinc-600 hover:bg-red-950/50 hover:text-red-400">Eliminar</button>
                 </div>

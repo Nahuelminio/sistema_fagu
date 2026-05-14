@@ -11,6 +11,7 @@ const productSchema = z.object({
   costPrice: z.number().positive().optional(),
   salePrice: z.number().positive().optional(),
   bottleSize: z.number().positive().nullable().optional(),
+  imageUrl: z.string().url().nullable().optional().or(z.literal('')),
   visibleInCatalog: z.boolean().default(false),
 })
 
@@ -23,6 +24,7 @@ const productSelect = {
   costPrice: true,
   salePrice: true,
   bottleSize: true,
+  imageUrl: true,
   visibleInCatalog: true,
   createdAt: true,
   updatedAt: true,
@@ -167,4 +169,20 @@ export async function mergeProducts(req: AuthRequest, res: Response): Promise<vo
 
   const result = await prisma.product.findUnique({ where: { id: keepId }, select: productSelect })
   res.json(result)
+}
+
+/** Toggle rápido de visibleInCatalog */
+export async function toggleCatalog(req: AuthRequest, res: Response): Promise<void> {
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  const p = await prisma.product.findUnique({ where: { id }, select: { visibleInCatalog: true } })
+  if (!p) { res.status(404).json({ error: 'Producto no encontrado' }); return }
+
+  const updated = await prisma.product.update({
+    where: { id },
+    data:  { visibleInCatalog: !p.visibleInCatalog },
+    select: productSelect,
+  })
+  res.json(updated)
 }

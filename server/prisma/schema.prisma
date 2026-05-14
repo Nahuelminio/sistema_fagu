@@ -46,6 +46,7 @@ model User {
 model Category {
   id       Int       @id @default(autoincrement())
   name     String    @unique
+  order    Int       @default(0)
   products Product[]
 }
 
@@ -62,6 +63,7 @@ model Product {
   // Solo para productos tipo botella: oz por unidad (ej: 25.36 para 750ml, 33.81 para 1L).
   // Si está seteado, los ingresos se pueden cargar "en botellas" y el sistema convierte a oz.
   bottleSize       Decimal?        @db.Decimal(10, 3)
+  imageUrl         String?
   visibleInCatalog Boolean         @default(false)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -131,13 +133,16 @@ model SaleItem {
 }
 
 model Trago {
-  id           Int            @id @default(autoincrement())
-  name         String         @unique
-  salePrice    Decimal?       @db.Decimal(10, 2)
-  active       Boolean        @default(true)
-  createdAt    DateTime       @default(now())
-  ingredientes TragoBotella[]
-  saleItems    SaleItem[]
+  id               Int            @id @default(autoincrement())
+  name             String         @unique
+  salePrice        Decimal?       @db.Decimal(10, 2)
+  active           Boolean        @default(true)
+  imageUrl         String?
+  description      String?
+  visibleInCatalog Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  ingredientes     TragoBotella[]
+  saleItems        SaleItem[]
 }
 
 model BotellaActiva {

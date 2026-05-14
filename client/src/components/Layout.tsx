@@ -15,6 +15,7 @@ const adminLinks = [
   { to: '/productos',   label: 'Productos'     },
   { to: '/movimientos', label: 'Inventario'    },
   { to: '/clientes',    label: 'Clientes'      },
+  { to: '/qr-catalogo', label: 'QR catálogo'   },
   { to: '/usuarios',    label: 'Empleados'     },
 ]
 

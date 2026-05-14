@@ -22,6 +22,7 @@ import Mesas from './pages/admin/Mesas'
 import Ordenes from './pages/admin/Ordenes'
 import ResumenMensual from './pages/admin/ResumenMensual'
 import Clientes from './pages/admin/Clientes'
+import QrCatalogo from './pages/admin/QrCatalogo'
 import Caja from './pages/Caja'
 
 import StockView from './pages/user/StockView'
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="/resumen" element={<ResumenMensual />} />
             <Route path="/clientes" element={<Clientes />} />
             <Route path="/caja" element={<Caja />} />
+            <Route path="/qr-catalogo" element={<QrCatalogo />} />
             <Route path="/usuarios" element={<Users />} />
           </Route>
 

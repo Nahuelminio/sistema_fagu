@@ -13,6 +13,7 @@ export interface User {
 export interface Category {
   id: number
   name: string
+  order?: number
 }
 
 export interface Product {
@@ -25,6 +26,7 @@ export interface Product {
   salePrice: string | null
   /** oz por unidad — si es null el producto NO es tipo botella (ej: producto granel) */
   bottleSize: string | null
+  imageUrl: string | null
   visibleInCatalog: boolean
   createdAt: string
   updatedAt: string
@@ -56,17 +58,18 @@ export interface DashboardData {
   paymentBreakdown: Array<{ method: string; count: number; total: number }>
 }
 
-export interface CatalogProduct {
+export interface CatalogItem {
+  type: 'product' | 'trago'
   id: number
   name: string
-  unit: string
-  currentStock: string
   salePrice: string | null
-  category: Category
+  imageUrl: string | null
+  description?: string | null
+  unit?: string
 }
 
 export interface CatalogResponse {
-  categories: Record<string, CatalogProduct[]>
+  categories: Record<string, CatalogItem[]>
   updatedAt: string
 }
 
@@ -93,6 +96,9 @@ export interface Trago {
   name: string
   salePrice: string | null
   active: boolean
+  imageUrl: string | null
+  description: string | null
+  visibleInCatalog: boolean
   createdAt: string
   ingredientes: TragoBotella[]
 }
