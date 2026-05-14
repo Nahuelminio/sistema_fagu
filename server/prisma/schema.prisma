@@ -40,6 +40,7 @@ model User {
   comandas  Comanda[]
   ordenes   OrdenCompra[]
   cajas     Caja[]            @relation("CajaUser")
+  movimientosCaja MovimientoCaja[] @relation("MovimientoCajaUser")
 }
 
 model Category {
@@ -253,21 +254,39 @@ enum CajaStatus {
   CERRADA
 }
 
+enum MovimientoCajaTipo {
+  RETIRO
+  APORTE
+}
+
 model Caja {
-  id                Int        @id @default(autoincrement())
+  id                Int               @id @default(autoincrement())
   userId            Int
-  user              User       @relation("CajaUser", fields: [userId], references: [id])
-  fondoInicial      Decimal    @db.Decimal(10, 2)
-  fechaApertura     DateTime   @default(now())
+  user              User              @relation("CajaUser", fields: [userId], references: [id])
+  fondoInicial      Decimal           @db.Decimal(10, 2)
+  fechaApertura     DateTime          @default(now())
   fechaCierre       DateTime?
   // Calculados al cerrar
-  efectivoEsperado  Decimal?   @db.Decimal(10, 2)
-  efectivoContado   Decimal?   @db.Decimal(10, 2)
-  diferencia        Decimal?   @db.Decimal(10, 2)
+  efectivoEsperado  Decimal?          @db.Decimal(10, 2)
+  efectivoContado   Decimal?          @db.Decimal(10, 2)
+  diferencia        Decimal?          @db.Decimal(10, 2)
   notasApertura     String?
   notasCierre       String?
-  status            CajaStatus @default(ABIERTA)
+  status            CajaStatus        @default(ABIERTA)
   sales             Sale[]
+  movimientos       MovimientoCaja[]
+}
+
+model MovimientoCaja {
+  id        Int                 @id @default(autoincrement())
+  cajaId    Int
+  caja      Caja                @relation(fields: [cajaId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User                @relation("MovimientoCajaUser", fields: [userId], references: [id])
+  tipo      MovimientoCajaTipo
+  monto     Decimal             @db.Decimal(10, 2)
+  motivo    String?
+  createdAt DateTime            @default(now())
 }
 
 model OrdenItem {
