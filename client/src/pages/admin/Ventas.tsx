@@ -22,20 +22,12 @@ function formatDate(iso: string) {
 function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
   const [open, setOpen] = useState(false)
   const [showFactura, setShowFactura] = useState(false)
+  const [showAnular, setShowAnular] = useState(false)
   const hasFactura = !!venta.cae
   const isAnulada  = !!venta.anulada
 
-  async function handleAnular() {
-    const motivo = window.prompt('Motivo de anulación:')
-    if (!motivo || motivo.trim().length < 3) {
-      alert('Tenés que escribir un motivo de al menos 3 caracteres')
-      return
-    }
-    const extra = hasFactura
-      ? '\n\nSe va a emitir una Nota de Crédito automática en ARCA para anular la factura legalmente.'
-      : ''
-    if (!confirm(`¿Anular venta #${venta.id} por "${motivo}"?${extra}`)) return
-
+  async function doAnular(motivo: string) {
+    setShowAnular(false)
     try {
       const res = await api.post<{ ok: boolean; nc: { cae: string; nroFactura: number; puntoVenta: number } | null; ncError: string | null }>(
         `/ventas/${venta.id}/anular`, { motivo }
@@ -176,7 +168,7 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
           {!isAnulada && (
             <div className="mt-3 border-t border-zinc-800 pt-3 flex justify-end">
               <button
-                onClick={handleAnular}
+                onClick={() => setShowAnular(true)}
                 className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-950/60 transition"
               >
                 Anular venta
@@ -187,6 +179,120 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
       )}
 
       {showFactura && <FacturaModal sale={venta} onClose={() => setShowFactura(false)} />}
+      {showAnular && (
+        <AnularModal
+          ventaId={venta.id}
+          tieneFactura={hasFactura}
+          onConfirm={doAnular}
+          onClose={() => setShowAnular(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/** Modal con motivos rápidos para anular una venta */
+function AnularModal({
+  ventaId, tieneFactura, onConfirm, onClose,
+}: {
+  ventaId: number
+  tieneFactura: boolean
+  onConfirm: (motivo: string) => void
+  onClose: () => void
+}) {
+  const [otro, setOtro] = useState('')
+  const [showOtro, setShowOtro] = useState(false)
+
+  const motivos = [
+    'Error del cajero',
+    'Cliente se arrepintió',
+    'Producto en mal estado',
+    'Sin especificar',
+  ]
+
+  function elegir(motivo: string) {
+    onConfirm(motivo)
+  }
+
+  function confirmarOtro() {
+    const m = otro.trim()
+    if (m.length < 3) {
+      alert('Escribí al menos 3 caracteres')
+      return
+    }
+    onConfirm(m)
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-5"
+      >
+        <h3 className="text-base font-semibold text-zinc-100">Anular venta #{ventaId}</h3>
+        <p className="mt-1 text-xs text-zinc-500">Elegí el motivo</p>
+        {tieneFactura && (
+          <p className="mt-2 rounded-lg border border-brand-500/30 bg-brand-500/10 px-2 py-1.5 text-xs text-brand-300">
+            Se va a emitir una Nota de Crédito automática en ARCA
+          </p>
+        )}
+
+        {!showOtro ? (
+          <div className="mt-4 flex flex-col gap-2">
+            {motivos.map((m) => (
+              <button
+                key={m}
+                onClick={() => elegir(m)}
+                className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-200 hover:border-red-500/50 hover:bg-red-950/30 transition text-left"
+              >
+                {m}
+              </button>
+            ))}
+            <button
+              onClick={() => setShowOtro(true)}
+              className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition text-left"
+            >
+              Otro motivo...
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 flex flex-col gap-2">
+            <input
+              type="text"
+              value={otro}
+              onChange={(e) => setOtro(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmarOtro() }}
+              autoFocus
+              placeholder="Escribí el motivo..."
+              className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand-500"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={confirmarOtro}
+                className="flex-1 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-400 transition"
+              >
+                Anular
+              </button>
+              <button
+                onClick={() => { setShowOtro(false); setOtro('') }}
+                className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 transition"
+              >
+                Volver
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="mt-4 w-full text-xs text-zinc-500 hover:text-zinc-300 transition"
+        >
+          Cancelar
+        </button>
+      </div>
     </div>
   )
 }
