@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../../lib/api'
 import { BotellaActiva, Product } from '../../types'
+import SearchableSelect, { SearchOption } from '../../components/ui/SearchableSelect'
 import { useToast } from '../../context/ToastContext'
 import { useConfirm } from '../../context/ConfirmContext'
 
@@ -221,32 +222,25 @@ export default function Botellas() {
         <form onSubmit={handleAbrir} className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
           <h2 className="font-semibold text-zinc-200">Nueva botella</h2>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-400">Producto / ingrediente</label>
-            <select
-              value={productId}
-              onChange={e => {
-                const id = e.target.value
-                setProductId(id)
-                // Auto-seleccionar preset según bottleSize del producto
-                const p = products.find((x) => String(x.id) === id)
-                if (p?.bottleSize) {
-                  const bs = Number(p.bottleSize)
-                  const idx = PRESETS.findIndex((preset) => Math.abs(preset.value - bs) < 0.5)
-                  if (idx >= 0) setPresetIdx(idx)
-                }
-              }}
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
-              required
-            >
-              <option value="">— Seleccioná —</option>
-              {products.filter((p) => p.bottleSize).map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} — stock: {Number(p.currentStock)} botellas
-                </option>
-              ))}
-            </select>
-          </div>
+          <SearchableSelect
+            label="Producto / ingrediente"
+            value={productId}
+            onChange={(id) => {
+              setProductId(id)
+              const p = products.find((x) => String(x.id) === id)
+              if (p?.bottleSize) {
+                const bs = Number(p.bottleSize)
+                const idx = PRESETS.findIndex((preset) => Math.abs(preset.value - bs) < 0.5)
+                if (idx >= 0) setPresetIdx(idx)
+              }
+            }}
+            placeholder="Buscar producto..."
+            options={products.filter((p) => p.bottleSize).map<SearchOption>((p) => ({
+              value: String(p.id),
+              label: p.name,
+              meta:  `${Number(p.currentStock)} botellas`,
+            }))}
+          />
 
           <div className="flex flex-col gap-1">
             <label className="text-xs text-zinc-400">Tamaño de esta botella</label>

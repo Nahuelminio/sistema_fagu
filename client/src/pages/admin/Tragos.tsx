@@ -4,10 +4,10 @@ import { Trago, Product } from '../../types'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Badge from '../../components/ui/Badge'
+import SearchableSelect, { SearchOption } from '../../components/ui/SearchableSelect'
 import { useToast } from '../../context/ToastContext'
 import { useConfirm } from '../../context/ConfirmContext'
 
-const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
 
 function formatARS(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -133,16 +133,18 @@ export default function Tragos() {
               <div className="flex flex-col gap-2">
                 {ings.map((ing, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <select
-                      value={ing.productId}
-                      onChange={(e) => updateIng(i, 'productId', e.target.value)}
-                      className={`${selectClass} flex-1`}
-                    >
-                      <option value="">Seleccionar...</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
-                      ))}
-                    </select>
+                    <div className="flex-1">
+                      <SearchableSelect
+                        value={ing.productId}
+                        onChange={(v) => updateIng(i, 'productId', v)}
+                        placeholder="Buscar ingrediente..."
+                        options={products.map<SearchOption>((p) => ({
+                          value: String(p.id),
+                          label: p.name,
+                          meta:  p.unit,
+                        }))}
+                      />
+                    </div>
                     <input
                       type="number"
                       step="0.01"

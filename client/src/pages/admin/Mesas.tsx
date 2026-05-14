@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../../lib/api'
 import { Product, Trago, PaymentMethod, PAYMENT_LABELS } from '../../types'
 import Button from '../../components/ui/Button'
+import SearchableSelect, { SearchOption } from '../../components/ui/SearchableSelect'
 import { useToast } from '../../context/ToastContext'
 import { useConfirm } from '../../context/ConfirmContext'
 
@@ -41,7 +42,6 @@ function formatARS(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 }
 
-const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
 
 // ── Vista de comanda activa ───────────────────────────────────────────────────
 function ComandaView({
@@ -157,13 +157,23 @@ function ComandaView({
         </div>
 
         <div className="flex flex-col gap-2">
-          <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className={selectClass}>
-            <option value="">{tab === 'trago' ? 'Seleccionar trago...' : 'Seleccionar producto...'}</option>
-            {tab === 'trago'
-              ? availableTragos.map((t) => <option key={t.id} value={t.id}>{t.name}{t.salePrice ? ` — ${formatARS(Number(t.salePrice))}` : ''}</option>)
-              : availableProducts.map((p) => <option key={p.id} value={p.id}>{p.name} — stock: {p.currentStock} {p.unit}{p.salePrice ? ` — ${formatARS(Number(p.salePrice))}` : ''}</option>)
+          <SearchableSelect
+            value={selectedId}
+            onChange={setSelectedId}
+            placeholder={tab === 'trago' ? 'Buscar trago...' : 'Buscar producto...'}
+            options={tab === 'trago'
+              ? availableTragos.map<SearchOption>((t) => ({
+                  value: String(t.id),
+                  label: t.name,
+                  meta:  t.salePrice ? formatARS(Number(t.salePrice)) : undefined,
+                }))
+              : availableProducts.map<SearchOption>((p) => ({
+                  value: String(p.id),
+                  label: p.name,
+                  meta:  `${p.currentStock} ${p.unit}${p.salePrice ? ` · ${formatARS(Number(p.salePrice))}` : ''}`,
+                }))
             }
-          </select>
+          />
           <div className="flex gap-2">
             <input
               type="number" step="1" min="1"

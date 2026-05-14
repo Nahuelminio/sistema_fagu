@@ -4,6 +4,7 @@ import { MovementsResponse, Product } from '../../types'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import SearchableSelect, { SearchOption } from '../../components/ui/SearchableSelect'
 import { useToast } from '../../context/ToastContext'
 
 const typeColor = { INGRESO: 'green', SALIDA: 'red', AJUSTE: 'yellow' } as const
@@ -66,13 +67,17 @@ export default function Movements() {
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
           <h2 className="mb-3 font-semibold text-zinc-100">Registrar ingreso</h2>
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium uppercase tracking-wide text-zinc-400">Producto</label>
-              <select value={ingresoForm.productId} onChange={(e) => setIngresoForm({ ...ingresoForm, productId: e.target.value })} className={selectClass}>
-                <option value="">Seleccionar...</option>
-                {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
+            <SearchableSelect
+              label="Producto"
+              value={ingresoForm.productId}
+              onChange={(v) => setIngresoForm({ ...ingresoForm, productId: v })}
+              placeholder="Buscar producto..."
+              options={products.map<SearchOption>((p) => ({
+                value: String(p.id),
+                label: p.name,
+                meta:  `${p.currentStock} ${p.unit}`,
+              }))}
+            />
             <div className="grid grid-cols-2 gap-3">
               <Input label="Cantidad" type="number" value={ingresoForm.quantity} onChange={(e) => setIngresoForm({ ...ingresoForm, quantity: e.target.value })} />
               <Input label="Costo unitario" type="number" value={ingresoForm.unitCost} onChange={(e) => setIngresoForm({ ...ingresoForm, unitCost: e.target.value })} />
@@ -90,13 +95,16 @@ export default function Movements() {
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Filtros</p>
         <div className="grid grid-cols-2 gap-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-500">Producto</label>
-            <select value={filters.productId} onChange={(e) => { setFilters({ ...filters, productId: e.target.value }); setPage(1) }} className={selectClass}>
-              <option value="">Todos</option>
-              {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
+          <SearchableSelect
+            label="Producto"
+            value={filters.productId}
+            onChange={(v) => { setFilters({ ...filters, productId: v }); setPage(1) }}
+            placeholder="Todos los productos"
+            options={[
+              { value: '', label: 'Todos los productos' },
+              ...products.map<SearchOption>((p) => ({ value: String(p.id), label: p.name })),
+            ]}
+          />
           <div className="flex flex-col gap-1">
             <label className="text-xs text-zinc-500">Tipo</label>
             <select value={filters.type} onChange={(e) => { setFilters({ ...filters, type: e.target.value }); setPage(1) }} className={selectClass}>

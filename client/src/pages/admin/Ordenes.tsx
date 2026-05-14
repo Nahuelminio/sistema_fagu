@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../../lib/api'
 import { Product } from '../../types'
 import Button from '../../components/ui/Button'
+import SearchableSelect, { SearchOption } from '../../components/ui/SearchableSelect'
 import { useToast } from '../../context/ToastContext'
 import { useConfirm } from '../../context/ConfirmContext'
 
@@ -263,10 +264,17 @@ export default function Ordenes() {
         <div>
           <label className="text-xs text-zinc-500 mb-1 block">Proveedor (opcional)</label>
           <div className="flex gap-2">
-            <select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)} className={inputClass}>
-              <option value="">Sin proveedor</option>
-              {proveedores.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <div className="flex-1">
+              <SearchableSelect
+                value={proveedorId}
+                onChange={setProveedorId}
+                placeholder="Sin proveedor"
+                options={[
+                  { value: '', label: 'Sin proveedor' },
+                  ...proveedores.map<SearchOption>((p) => ({ value: String(p.id), label: p.name })),
+                ]}
+              />
+            </div>
             <button onClick={() => setShowNewProv((v) => !v)} className="rounded-xl border border-zinc-700 px-3 text-xs text-zinc-400 hover:text-zinc-200 whitespace-nowrap">+ Nuevo</button>
           </div>
         </div>
@@ -290,14 +298,16 @@ export default function Ordenes() {
           <div className="flex flex-col gap-2">
             {orderItems.map((item, idx) => (
               <div key={idx} className="grid grid-cols-[1fr_5rem_5rem_auto] gap-2 items-center">
-                <select
+                <SearchableSelect
                   value={item.productId}
-                  onChange={(e) => setOrderItems((prev) => prev.map((i, j) => j === idx ? { ...i, productId: e.target.value } : i))}
-                  className="rounded-xl border border-zinc-700 bg-zinc-800 px-2 py-2 text-xs text-zinc-100 outline-none"
-                >
-                  <option value="">Producto...</option>
-                  {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                  onChange={(v) => setOrderItems((prev) => prev.map((i, j) => j === idx ? { ...i, productId: v } : i))}
+                  placeholder="Producto..."
+                  options={products.map<SearchOption>((p) => ({
+                    value: String(p.id),
+                    label: p.name,
+                    meta:  p.unit,
+                  }))}
+                />
                 <input
                   type="number" placeholder="Cant." min="0" step="0.001"
                   value={item.quantity}

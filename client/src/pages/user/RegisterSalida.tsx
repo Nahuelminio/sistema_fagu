@@ -3,9 +3,9 @@ import api from '../../lib/api'
 import { Product } from '../../types'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import SearchableSelect, { SearchOption } from '../../components/ui/SearchableSelect'
 import { useToast } from '../../context/ToastContext'
 
-const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
 
 export default function RegisterSalida() {
   const { showToast } = useToast()
@@ -50,17 +50,17 @@ export default function RegisterSalida() {
 
       <form onSubmit={handleSubmit} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium uppercase tracking-wide text-zinc-400">Producto</label>
-            <select value={productId} onChange={(e) => setProductId(e.target.value)} required className={selectClass}>
-              <option value="">Seleccionar...</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.currentStock} {p.unit})
-                </option>
-              ))}
-            </select>
-          </div>
+          <SearchableSelect
+            label="Producto"
+            value={productId}
+            onChange={setProductId}
+            placeholder="Buscar producto..."
+            options={products.map<SearchOption>((p) => ({
+              value: String(p.id),
+              label: p.name,
+              meta:  `${p.currentStock} ${p.unit}`,
+            }))}
+          />
 
           <Input label="Cantidad" type="number" step="0.001" min="0.001" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
           <Input label="Notas (opcional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
