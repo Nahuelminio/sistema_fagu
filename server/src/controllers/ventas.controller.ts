@@ -4,6 +4,7 @@ import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
 import { broadcastCatalogUpdate } from '../services/sse.service'
 import { processFacturaYEmail } from '../utils/processFactura'
+import { emitirNotaCredito, getCbteTipo } from '../services/arca.service'
 
 const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MERCADOPAGO', 'CUENTA_CORRIENTE'] as const
 
@@ -609,6 +610,53 @@ export async function anularVenta(req: AuthRequest, res: Response): Promise<void
     }
   }, { timeout: 20000 })
 
+  // Si la venta tenía CAE, emitir Nota de Crédito en ARCA para anularla legalmente
+  let nc: { cae: string; nroFactura: number; puntoVenta: number } | null = null
+  let ncError: string | null = null
+  if (sale.cae && sale.nroFactura && sale.puntoVenta) {
+    try {
+      const cliente = sale.clienteId
+        ? await prisma.cliente.findUnique({
+            where: { id: sale.clienteId },
+            select: { nombre: true, cuit: true, dni: true, email: true },
+          })
+        : null
+
+      const facturaResult = await emitirNotaCredito({
+        total:   Number(sale.total),
+        cliente: cliente,
+        facturaOriginal: {
+          cbteTipo:   getCbteTipo(), // Asumimos que el tipo actual coincide con el original
+          puntoVenta: sale.puntoVenta,
+          nroFactura: sale.nroFactura,
+          fecha:      sale.createdAt,
+        },
+      })
+
+      if (facturaResult) {
+        await prisma.sale.update({
+          where: { id: sale.id },
+          data: {
+            ncCae:            facturaResult.cae,
+            ncCaeVencimiento: facturaResult.caeVencimiento,
+            ncNroFactura:     facturaResult.nroFactura,
+            ncPuntoVenta:     facturaResult.puntoVenta,
+            ncCbteTipo:       getCbteTipo() + 2,
+          },
+        })
+        nc = { cae: facturaResult.cae, nroFactura: facturaResult.nroFactura, puntoVenta: facturaResult.puntoVenta }
+      }
+    } catch (err: any) {
+      console.error('[ARCA] Error emitiendo NC al anular venta #' + sale.id + ':', err)
+      ncError = err?.message ?? 'Error desconocido al emitir Nota de Crédito'
+    }
+  }
+
   broadcastCatalogUpdate()
-  res.json({ ok: true, mensaje: 'Venta anulada y stock revertido' })
+  res.json({
+    ok: true,
+    mensaje: 'Venta anulada y stock revertido' + (nc ? ' · Nota de Crédito emitida' : ''),
+    nc,
+    ncError,
+  })
 }

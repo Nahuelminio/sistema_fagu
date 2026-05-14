@@ -107,6 +107,12 @@ model Sale {
   anuladaAt          DateTime?
   anuladaPorUserId   Int?
   motivoAnulacion    String?
+  // Nota de Crédito emitida en ARCA al anular (si la venta tenía factura)
+  ncCae              String?
+  ncCaeVencimiento   DateTime?
+  ncNroFactura       Int?
+  ncPuntoVenta       Int?
+  ncCbteTipo         Int?
   items          SaleItem[]
 }
 

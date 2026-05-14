@@ -137,6 +137,12 @@ export interface Sale {
   anulada?: boolean
   anuladaAt?: string | null
   motivoAnulacion?: string | null
+  // Nota de Crédito emitida en ARCA al anular
+  ncCae?: string | null
+  ncCaeVencimiento?: string | null
+  ncNroFactura?: number | null
+  ncPuntoVenta?: number | null
+  ncCbteTipo?: number | null
 }
 
 export interface VentasResponse {

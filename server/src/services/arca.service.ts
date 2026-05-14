@@ -161,3 +161,112 @@ export async function emitirFactura(total: number, cliente?: ClienteFactura | nu
     puntoVenta,
   }
 }
+
+export interface NotaCreditoArgs {
+  total:    number
+  cliente?: ClienteFactura | null
+  /** Datos de la factura original que se está anulando */
+  facturaOriginal: {
+    cbteTipo:   number   // 6 (Factura B), 11 (Factura C), etc.
+    puntoVenta: number
+    nroFactura: number
+    fecha:      Date     // fecha de la factura original (para CbteFch del CbteAsoc)
+  }
+}
+
+/**
+ * Emite una Nota de Crédito (NC) asociada a una factura previa.
+ * Tipos: Factura A (1) → NC A (3); Factura B (6) → NC B (8); Factura C (11) → NC C (13).
+ * El mapeo es siempre +2.
+ */
+export async function emitirNotaCredito(args: NotaCreditoArgs): Promise<FacturaResult | null> {
+  const afip = getAfip()
+  if (!afip) {
+    console.log('[ARCA] NC no emitida (ARCA_ENABLED=false o sin certificados)')
+    return null
+  }
+
+  const puntoVenta = parseInt(process.env.ARCA_PUNTO_VENTA ?? '1')
+  // El tipo de NC = tipo de factura + 2 (6 → 8, 11 → 13)
+  const ncTipo = args.facturaOriginal.cbteTipo + 2
+
+  // Último NC del mismo tipo
+  const lastVoucherResult = await afip.electronicBillingService.getLastVoucher(puntoVenta, ncTipo)
+  const lastNumber = Number(lastVoucherResult.CbteNro ?? 0)
+  const nextNumber = lastNumber + 1
+
+  const fechaStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+
+  // Documento del receptor — mismo que en la factura original
+  let docTipo = 99
+  let docNro  = 0
+  if (args.cliente?.cuit) {
+    docTipo = 80
+    docNro  = parseInt(args.cliente.cuit.replace(/\D/g, ''))
+  } else if (args.cliente?.dni) {
+    docTipo = 96
+    docNro  = parseInt(args.cliente.dni.replace(/\D/g, ''))
+  }
+
+  const isNCC = ncTipo === 13 // NC Factura C
+  const impNeto = isNCC ? args.total : Math.round((args.total / 1.21) * 100) / 100
+  const impIVA  = isNCC ? 0           : Math.round((args.total - impNeto) * 100) / 100
+
+  // Fecha de la factura original en YYYYMMDD
+  const fchOrigStr = args.facturaOriginal.fecha.toISOString().slice(0, 10).replace(/-/g, '')
+
+  const payload: Record<string, unknown> = {
+    CantReg:    1,
+    PtoVta:     puntoVenta,
+    CbteTipo:   ncTipo,
+    Concepto:   1,
+    DocTipo:    docTipo,
+    DocNro:     docNro,
+    CbteDesde:  nextNumber,
+    CbteHasta:  nextNumber,
+    CbteFch:    fechaStr,
+    ImpTotal:   args.total,
+    ImpTotConc: 0,
+    ImpNeto:    impNeto,
+    ImpOpEx:    0,
+    ImpIVA:     impIVA,
+    ImpTrib:    0,
+    MonId:      'PES',
+    MonCotiz:   1,
+    // Comprobante asociado: la factura original que se anula
+    CbtesAsoc: [{
+      Tipo:   args.facturaOriginal.cbteTipo,
+      PtoVta: args.facturaOriginal.puntoVenta,
+      Nro:    args.facturaOriginal.nroFactura,
+      CbteFch: fchOrigStr,
+    }],
+  }
+
+  if (!isNCC) {
+    payload.Iva = [{ Id: 5, BaseImp: impNeto, Importe: impIVA }]
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result: any = await afip.electronicBillingService.createVoucher(payload as any)
+  const cae = String(result.cae ?? result.CAE ?? '')
+  const vencimientoStr = String(result.caeFchVto ?? result.CAEFchVto ?? '')
+
+  if (!cae) {
+    const errors = result.response?.Errors?.Err ?? []
+    const errMsg = errors.map((e: any) => `[${e.Code}] ${e.Msg}`).join(' | ') || 'CAE vacío'
+    throw new Error(`ARCA rechazó la Nota de Crédito: ${errMsg}`)
+  }
+
+  const vencimiento = vencimientoStr.length === 8
+    ? new Date(`${vencimientoStr.slice(0, 4)}-${vencimientoStr.slice(4, 6)}-${vencimientoStr.slice(6, 8)}`)
+    : new Date()
+
+  console.log(`[ARCA] ✓ Nota de Crédito emitida — CAE: ${cae} — N° ${puntoVenta}-${String(nextNumber).padStart(8, '0')} (anula factura ${args.facturaOriginal.puntoVenta}-${args.facturaOriginal.nroFactura})`)
+
+  return { cae, caeVencimiento: vencimiento, nroFactura: nextNumber, puntoVenta }
+}
+
+/** Tipo de comprobante actual configurado en .env */
+export function getCbteTipo(): number {
+  return CBTE_TIPO
+}

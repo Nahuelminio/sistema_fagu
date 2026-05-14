@@ -32,12 +32,19 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
       return
     }
     const extra = hasFactura
-      ? '\n\nATENCIÓN: la factura ya fue emitida en ARCA. Anular acá solo lo marca internamente — la factura sigue legalmente emitida. Para anular en ARCA tenés que emitir una Nota de Crédito.'
+      ? '\n\nSe va a emitir una Nota de Crédito automática en ARCA para anular la factura legalmente.'
       : ''
     if (!confirm(`¿Anular venta #${venta.id} por "${motivo}"?${extra}`)) return
 
     try {
-      await api.post(`/ventas/${venta.id}/anular`, { motivo })
+      const res = await api.post<{ ok: boolean; nc: { cae: string; nroFactura: number; puntoVenta: number } | null; ncError: string | null }>(
+        `/ventas/${venta.id}/anular`, { motivo }
+      )
+      if (res.data.ncError) {
+        alert(`Venta anulada pero ARCA rechazó la Nota de Crédito:\n\n${res.data.ncError}\n\nPodés reintentar la NC más adelante.`)
+      } else if (res.data.nc) {
+        alert(`Venta anulada · Nota de Crédito ${String(res.data.nc.puntoVenta).padStart(4, '0')}-${String(res.data.nc.nroFactura).padStart(8, '0')} emitida en ARCA`)
+      }
       onAnular()
     } catch (err: any) {
       alert(err?.response?.data?.error ?? 'Error al anular')
@@ -139,7 +146,7 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
             </div>
           )}
 
-          {/* Motivo de anulación */}
+          {/* Motivo de anulación + Nota de Crédito */}
           {isAnulada && (
             <div className="mt-3 rounded-xl border border-red-500/30 bg-red-950/30 px-3 py-2">
               <p className="text-xs font-semibold uppercase tracking-widest text-red-400">Venta anulada</p>
@@ -148,6 +155,19 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
               )}
               {venta.motivoAnulacion && (
                 <p className="text-xs text-zinc-300 mt-1 italic">"{venta.motivoAnulacion}"</p>
+              )}
+              {venta.ncCae && (
+                <div className="mt-2 pt-2 border-t border-red-500/20">
+                  <p className="text-xs text-zinc-400">
+                    Nota de Crédito:{' '}
+                    <span className="font-mono text-zinc-200">
+                      {String(venta.ncPuntoVenta ?? 0).padStart(4, '0')}-{String(venta.ncNroFactura ?? 0).padStart(8, '0')}
+                    </span>
+                  </p>
+                  <p className="text-xs text-zinc-400">
+                    CAE NC: <span className="font-mono text-zinc-300">{venta.ncCae}</span>
+                  </p>
+                </div>
               )}
             </div>
           )}
