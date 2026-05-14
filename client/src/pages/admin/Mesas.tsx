@@ -3,6 +3,7 @@ import api from '../../lib/api'
 import { Product, Trago, PaymentMethod, PAYMENT_LABELS } from '../../types'
 import Button from '../../components/ui/Button'
 import { useToast } from '../../context/ToastContext'
+import { useConfirm } from '../../context/ConfirmContext'
 
 interface Cliente {
   id: number
@@ -327,6 +328,7 @@ function ComandaView({
 // ── Vista principal de mesas ──────────────────────────────────────────────────
 export default function Mesas() {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [mesas, setMesas]           = useState<Mesa[]>([])
   const [loading, setLoading]       = useState(true)
   const [activeMesa, setActiveMesa] = useState<Mesa | null>(null)
@@ -373,7 +375,13 @@ export default function Mesas() {
   }
 
   async function handleDeleteMesa(id: number) {
-    if (!confirm('¿Eliminar esta cuenta?')) return
+    const ok = await confirm({
+      title: 'Eliminar cuenta',
+      message: '¿Eliminar esta cuenta? Se borra el historial de comandas asociadas.',
+      confirmLabel: 'Eliminar',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await api.delete(`/mesas/${id}`)
       load()

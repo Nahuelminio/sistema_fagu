@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Badge from '../../components/ui/Badge'
 import { useToast } from '../../context/ToastContext'
+import { useConfirm } from '../../context/ConfirmContext'
 
 const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500'
 
@@ -16,6 +17,7 @@ interface IngForm { productId: string; cantidad: string }
 
 export default function Tragos() {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [tragos, setTragos]       = useState<Trago[]>([])
   const [products, setProducts]   = useState<Product[]>([])
   const [showForm, setShowForm]   = useState(false)
@@ -93,7 +95,13 @@ export default function Tragos() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('¿Eliminar este trago?')) return
+    const ok = await confirm({
+      title: 'Eliminar trago',
+      message: '¿Estás seguro que querés eliminar este trago?',
+      confirmLabel: 'Eliminar',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await api.delete(`/tragos/${id}`)
       showToast('Trago eliminado', 'info')

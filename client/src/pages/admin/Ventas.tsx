@@ -3,6 +3,7 @@ import api from '../../lib/api'
 import { VentasResponse, Sale, PAYMENT_LABELS, PaymentMethod } from '../../types'
 import Badge from '../../components/ui/Badge'
 import FacturaModal from '../../components/FacturaModal'
+import { useToast } from '../../context/ToastContext'
 
 function formatARS(n: number) {
   return new Intl.NumberFormat('es-AR', {
@@ -20,6 +21,7 @@ function formatDate(iso: string) {
 }
 
 function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
+  const { showToast } = useToast()
   const [open, setOpen] = useState(false)
   const [showFactura, setShowFactura] = useState(false)
   const [showAnular, setShowAnular] = useState(false)
@@ -33,13 +35,15 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
         `/ventas/${venta.id}/anular`, { motivo }
       )
       if (res.data.ncError) {
-        alert(`Venta anulada pero ARCA rechazó la Nota de Crédito:\n\n${res.data.ncError}\n\nPodés reintentar la NC más adelante.`)
+        showToast(`Venta anulada — ARCA rechazó la NC: ${res.data.ncError}`, 'error')
       } else if (res.data.nc) {
-        alert(`Venta anulada · Nota de Crédito ${String(res.data.nc.puntoVenta).padStart(4, '0')}-${String(res.data.nc.nroFactura).padStart(8, '0')} emitida en ARCA`)
+        showToast(`Venta anulada · NC ${String(res.data.nc.puntoVenta).padStart(4, '0')}-${String(res.data.nc.nroFactura).padStart(8, '0')} emitida`)
+      } else {
+        showToast('Venta anulada y stock restituido', 'info')
       }
       onAnular()
     } catch (err: any) {
-      alert(err?.response?.data?.error ?? 'Error al anular')
+      showToast(err?.response?.data?.error ?? 'Error al anular', 'error')
     }
   }
 
@@ -200,6 +204,7 @@ function AnularModal({
   onConfirm: (motivo: string) => void
   onClose: () => void
 }) {
+  const { showToast } = useToast()
   const [otro, setOtro] = useState('')
   const [showOtro, setShowOtro] = useState(false)
 
@@ -217,7 +222,7 @@ function AnularModal({
   function confirmarOtro() {
     const m = otro.trim()
     if (m.length < 3) {
-      alert('Escribí al menos 3 caracteres')
+      showToast('Escribí al menos 3 caracteres', 'error')
       return
     }
     onConfirm(m)

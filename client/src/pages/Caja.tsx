@@ -3,6 +3,7 @@ import api from '../lib/api'
 import Button from '../components/ui/Button'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
+import { useConfirm } from '../context/ConfirmContext'
 
 const ARS = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -47,6 +48,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 export default function Caja() {
   const { showToast } = useToast()
   const { isAdmin } = useAuth()
+  const confirm = useConfirm()
   const [caja, setCaja]               = useState<CajaActual | null>(null)
   const [historial, setHistorial]     = useState<CajaCerrada[]>([])
   const [loading, setLoading]         = useState(true)
@@ -78,7 +80,12 @@ export default function Caja() {
   }
 
   async function handleReabrir(id: number) {
-    if (!confirm('¿Reabrir esta caja? Vas a poder volver a cerrarla con los datos correctos.')) return
+    const ok = await confirm({
+      title: 'Reabrir cierre',
+      message: 'Vas a poder volver a cerrar la caja con los datos correctos.',
+      confirmLabel: 'Reabrir',
+    })
+    if (!ok) return
     try {
       await api.post(`/caja/${id}/reabrir`)
       showToast('Caja reabierta')
@@ -116,7 +123,12 @@ export default function Caja() {
       showToast('Ingresá el efectivo contado', 'error')
       return
     }
-    if (!confirm(`¿Cerrar la caja con ${ARS(monto)} contados?`)) return
+    const ok = await confirm({
+      title: 'Cerrar caja',
+      message: `¿Cerrar la caja con ${ARS(monto)} contados?`,
+      confirmLabel: 'Cerrar caja',
+    })
+    if (!ok) return
     setSaving(true)
     try {
       await api.post('/caja/cerrar', { efectivoContado: monto, notas: notasCi || undefined })

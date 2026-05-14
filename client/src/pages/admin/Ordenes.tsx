@@ -3,6 +3,7 @@ import api from '../../lib/api'
 import { Product } from '../../types'
 import Button from '../../components/ui/Button'
 import { useToast } from '../../context/ToastContext'
+import { useConfirm } from '../../context/ConfirmContext'
 
 interface Proveedor {
   id: number
@@ -43,6 +44,7 @@ const inputClass = 'rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text
 
 export default function Ordenes() {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [ordenes, setOrdenes]         = useState<Orden[]>([])
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [products, setProducts]       = useState<Product[]>([])
@@ -123,7 +125,14 @@ export default function Ordenes() {
   }
 
   async function handleCancelar(id: number) {
-    if (!confirm('¿Cancelar esta orden?')) return
+    const ok = await confirm({
+      title: 'Cancelar orden',
+      message: '¿Cancelar esta orden de compra?',
+      confirmLabel: 'Cancelar orden',
+      cancelLabel: 'Volver',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await api.post(`/ordenes/${id}/cancelar`, {})
       showToast(`Orden #${id} cancelada`, 'info')

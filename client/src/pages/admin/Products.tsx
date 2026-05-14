@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Badge from '../../components/ui/Badge'
 import { useToast } from '../../context/ToastContext'
+import { useConfirm } from '../../context/ConfirmContext'
 
 const emptyForm = {
   name: '', categoryId: '', unit: '', minStock: '0',
@@ -16,6 +17,7 @@ const selectClass = 'w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 p
 
 export default function Products() {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const navigate = useNavigate()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -91,7 +93,13 @@ export default function Products() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('¿Eliminar este producto?')) return
+    const ok = await confirm({
+      title: 'Eliminar producto',
+      message: '¿Estás seguro? Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await api.delete(`/products/${id}`)
       showToast('Producto eliminado', 'info')
@@ -102,7 +110,12 @@ export default function Products() {
   }
 
   async function handleMerge(keepId: number, removeId: number, keepName: string) {
-    if (!confirm(`¿Fusionar los duplicados en "${keepName}"? Se sumarán stocks y se eliminarán los repetidos.`)) return
+    const ok = await confirm({
+      title: 'Fusionar duplicados',
+      message: `¿Fusionar los duplicados en "${keepName}"? Se sumarán los stocks y se eliminarán los repetidos.`,
+      confirmLabel: 'Fusionar',
+    })
+    if (!ok) return
     await api.post('/products/merge', { keepId, removeId })
     showToast(`Duplicados fusionados en "${keepName}"`)
     load()

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../../lib/api'
 import { BotellaActiva, Product } from '../../types'
 import { useToast } from '../../context/ToastContext'
+import { useConfirm } from '../../context/ConfirmContext'
 
 // Capacidades estándar en oz
 const PRESETS = [
@@ -93,6 +94,7 @@ function BottleSvg({ restante, capacidad, alertaOz, uid }: {
 
 export default function Botellas() {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [botellas, setBotellas] = useState<BotellaActiva[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -139,10 +141,12 @@ export default function Botellas() {
     if (existing) {
       const restante = Number(existing.restante)
       if (restante > 0) {
-        const ok = confirm(
-          `Ya hay una botella abierta de este producto con ${restante.toFixed(1)} oz sin usar. ` +
-          `Si abrís otra, esos oz se pierden. ¿Continuar?`
-        )
+        const ok = await confirm({
+          title: 'Botella ya abierta',
+          message: `Ya hay una botella abierta con ${restante.toFixed(1)} oz sin usar. Si abrís otra, esos oz se pierden.`,
+          confirmLabel: 'Continuar',
+          variant: 'danger',
+        })
         if (!ok) return
       }
     }
@@ -173,7 +177,13 @@ export default function Botellas() {
   }
 
   async function handleCerrar(pid: number, nombre: string) {
-    if (!confirm(`¿Cerrar el seguimiento de "${nombre}"?`)) return
+    const ok = await confirm({
+      title: 'Cerrar seguimiento',
+      message: `¿Cerrar el seguimiento de "${nombre}"? Se pierden los oz restantes en el sistema.`,
+      confirmLabel: 'Cerrar',
+      variant: 'danger',
+    })
+    if (!ok) return
     await api.delete(`/botellas/${pid}`)
     showToast(`Botella de ${nombre} cerrada`, 'info')
     load()
