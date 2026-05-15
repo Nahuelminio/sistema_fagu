@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { z } from 'zod'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
+import { broadcastCatalogUpdate } from '../services/sse.service'
 
 const productSchema = z.object({
   name: z.string().min(1),
@@ -60,6 +61,7 @@ export async function create(req: AuthRequest, res: Response): Promise<void> {
     data: parsed.data,
     select: productSelect,
   })
+  if (product.visibleInCatalog) broadcastCatalogUpdate()
   res.status(201).json(product)
 }
 
@@ -77,6 +79,7 @@ export async function update(req: AuthRequest, res: Response): Promise<void> {
       data: parsed.data,
       select: productSelect,
     })
+    if (product.visibleInCatalog) broadcastCatalogUpdate()
     res.json(product)
   } catch {
     res.status(404).json({ error: 'Producto no encontrado' })
@@ -184,5 +187,6 @@ export async function toggleCatalog(req: AuthRequest, res: Response): Promise<vo
     data:  { visibleInCatalog: !p.visibleInCatalog },
     select: productSelect,
   })
+  broadcastCatalogUpdate()
   res.json(updated)
 }

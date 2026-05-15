@@ -69,18 +69,24 @@ export async function getCatalog(_req: Request, res: Response): Promise<void> {
     })
   }
 
-  // Los tragos en su propia categoría virtual al inicio
+  // Los tragos van en una categoría "Tragos" al inicio.
+  // Si la dueña ya tiene una categoría real con ese nombre, FUSIONAMOS los items
+  // (tragos primero) para no pisar sus productos.
   if (tragos.length > 0) {
+    const existingItems = grouped['Tragos']?.items ?? []
     grouped['Tragos'] = {
       order: -1, // siempre primero
-      items: tragos.map<CatItem>((t) => ({
-        type: 'trago',
-        id:   t.id,
-        name: t.name,
-        salePrice: t.salePrice ? String(t.salePrice) : null,
-        imageUrl:  t.imageUrl,
-        description: t.description,
-      })),
+      items: [
+        ...tragos.map<CatItem>((t) => ({
+          type: 'trago',
+          id:   t.id,
+          name: t.name,
+          salePrice: t.salePrice ? String(t.salePrice) : null,
+          imageUrl:  t.imageUrl,
+          description: t.description,
+        })),
+        ...existingItems,
+      ],
     }
   }
 

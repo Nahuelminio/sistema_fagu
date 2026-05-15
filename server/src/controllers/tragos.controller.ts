@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { z } from 'zod'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
+import { broadcastCatalogUpdate } from '../services/sse.service'
 
 const ingredienteSchema = z.object({
   productId: z.number().int().positive(),
@@ -69,6 +70,7 @@ export async function createTrago(req: AuthRequest, res: Response): Promise<void
     include: tragoInclude,
   })
 
+  if (trago.visibleInCatalog) broadcastCatalogUpdate()
   res.status(201).json(trago)
 }
 
@@ -105,6 +107,7 @@ export async function updateTrago(req: AuthRequest, res: Response): Promise<void
     })
   })
 
+  if (trago.visibleInCatalog) broadcastCatalogUpdate()
   res.json(trago)
 }
 
@@ -121,6 +124,7 @@ export async function toggleCatalogTrago(req: AuthRequest, res: Response): Promi
     data:  { visibleInCatalog: !t.visibleInCatalog },
     include: tragoInclude,
   })
+  broadcastCatalogUpdate()
   res.json(updated)
 }
 
@@ -133,12 +137,14 @@ export async function deleteTrago(req: AuthRequest, res: Response): Promise<void
   const sold = await prisma.saleItem.count({ where: { tragoId: id } })
   if (sold > 0) {
     await prisma.trago.update({ where: { id }, data: { active: false } })
+    broadcastCatalogUpdate()
     res.json({ ok: true, softDeleted: true })
     return
   }
 
   try {
     await prisma.trago.delete({ where: { id } })
+    broadcastCatalogUpdate()
     res.status(204).send()
   } catch (e: any) {
     if (e.code === 'P2025') { res.status(404).json({ error: 'Trago no encontrado' }); return }

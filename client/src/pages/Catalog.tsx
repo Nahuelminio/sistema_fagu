@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useCatalog } from '../hooks/useCatalog'
 import { CatalogItem } from '../types'
 
@@ -6,11 +6,18 @@ const formatARS = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 
 export default function Catalog() {
-  const { data, loading } = useCatalog()
+  const { data, loading, error } = useCatalog()
   const [search, setSearch]       = useState('')
   const [activeCat, setActiveCat] = useState<string>('TODO')
 
   const categories = useMemo(() => data ? Object.entries(data.categories) : [], [data])
+
+  // Si la categoría activa desaparece (porque se desactivaron sus items), resetear a TODO
+  useEffect(() => {
+    if (activeCat !== 'TODO' && categories.length > 0 && !categories.some(([c]) => c === activeCat)) {
+      setActiveCat('TODO')
+    }
+  }, [categories, activeCat])
 
   // Filtrado: por categoría + búsqueda
   const filtered = useMemo(() => {
@@ -33,6 +40,17 @@ export default function Catalog() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-950">
         <p className="text-zinc-500">Cargando carta...</p>
+      </div>
+    )
+  }
+
+  if (error && !data) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
+        <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center max-w-sm">
+          <p className="text-red-400 font-medium">No se pudo cargar la carta</p>
+          <p className="mt-2 text-xs text-zinc-500">{error}</p>
+        </div>
       </div>
     )
   }
