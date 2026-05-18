@@ -34,20 +34,45 @@ const CBTE_TIPO = parseInt(process.env.ARCA_CBTE_TIPO ?? '11')
 
 let afipInstance: Afip | null = null
 
+/**
+ * Obtiene el certificado y la clave privada.
+ * Prioridad:
+ *  1. Variables de entorno ARCA_CERT / ARCA_KEY (recomendado para Railway/producción)
+ *  2. Archivos en server/certs/ (para desarrollo local)
+ */
+function getCertAndKey(): { cert: string; key: string } | null {
+  const envCert = process.env.ARCA_CERT
+  const envKey  = process.env.ARCA_KEY
+  if (envCert && envKey) {
+    // Las env vars pueden venir con \n escapados — los normalizamos
+    return {
+      cert: envCert.replace(/\\n/g, '\n'),
+      key:  envKey.replace(/\\n/g, '\n'),
+    }
+  }
+
+  const certPath = path.join(__dirname, '../../certs/certificate.pem')
+  const keyPath  = path.join(__dirname, '../../certs/privatekey.pem')
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    return {
+      cert: fs.readFileSync(certPath, 'utf8'),
+      key:  fs.readFileSync(keyPath,  'utf8'),
+    }
+  }
+
+  return null
+}
+
 function getAfip(): Afip | null {
   if (!ARCA_ENABLED) return null
   if (afipInstance) return afipInstance
 
-  const certPath = path.join(__dirname, '../../certs/certificate.pem')
-  const keyPath  = path.join(__dirname, '../../certs/privatekey.pem')
-
-  if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
-    console.error('[ARCA] No se encontraron los certificados en server/certs/')
+  const creds = getCertAndKey()
+  if (!creds) {
+    console.error('[ARCA] No se encontraron los certificados (ni en ARCA_CERT/ARCA_KEY ni en server/certs/)')
     return null
   }
-
-  const cert = fs.readFileSync(certPath, 'utf8')
-  const key  = fs.readFileSync(keyPath,  'utf8')
+  const { cert, key } = creds
 
   afipInstance = new Afip({
     cuit:       parseInt(process.env.ARCA_CUIT ?? '0'),
