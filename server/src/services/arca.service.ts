@@ -295,3 +295,52 @@ export async function emitirNotaCredito(args: NotaCreditoArgs): Promise<FacturaR
 export function getCbteTipo(): number {
   return CBTE_TIPO
 }
+
+/**
+ * Diagnóstico de ARCA — verifica configuración y conexión SIN emitir factura.
+ * Hace getLastVoucher que es una operación de solo lectura.
+ */
+export async function testArca(): Promise<{ ok: boolean; detalle: Record<string, unknown> }> {
+  const detalle: Record<string, unknown> = {
+    ARCA_ENABLED: process.env.ARCA_ENABLED,
+    ARCA_CUIT: process.env.ARCA_CUIT,
+    ARCA_PUNTO_VENTA: process.env.ARCA_PUNTO_VENTA,
+    ARCA_CBTE_TIPO: process.env.ARCA_CBTE_TIPO,
+    ARCA_PRODUCTION: process.env.ARCA_PRODUCTION,
+    tieneEnvCert: !!process.env.ARCA_CERT,
+    tieneEnvKey: !!process.env.ARCA_KEY,
+    envCertLargo: process.env.ARCA_CERT?.length ?? 0,
+    envKeyLargo: process.env.ARCA_KEY?.length ?? 0,
+  }
+
+  if (!ARCA_ENABLED) {
+    return { ok: false, detalle: { ...detalle, motivo: 'ARCA_ENABLED no es "true"' } }
+  }
+
+  const creds = getCertAndKey()
+  if (!creds) {
+    return { ok: false, detalle: { ...detalle, motivo: 'No se encontraron certificados' } }
+  }
+  detalle.certEmpiezaCon = creds.cert.slice(0, 30)
+  detalle.keyEmpiezaCon  = creds.key.slice(0, 30)
+
+  try {
+    const afip = getAfip()
+    if (!afip) return { ok: false, detalle: { ...detalle, motivo: 'getAfip() devolvió null' } }
+
+    const puntoVenta = parseInt(process.env.ARCA_PUNTO_VENTA ?? '1')
+    const last = await afip.electronicBillingService.getLastVoucher(puntoVenta, CBTE_TIPO)
+    detalle.ultimoComprobante = Number(last.CbteNro ?? 0)
+    return { ok: true, detalle: { ...detalle, motivo: 'Conexión OK con ARCA' } }
+  } catch (err: any) {
+    return {
+      ok: false,
+      detalle: {
+        ...detalle,
+        motivo: 'Error al conectar con ARCA',
+        error: err?.message ?? String(err),
+        errorCode: err?.code,
+      },
+    }
+  }
+}
