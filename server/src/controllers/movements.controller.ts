@@ -67,7 +67,7 @@ export async function registerIngreso(req: AuthRequest, res: Response): Promise<
     })
 
     return { movement, currentStock: updated.currentStock, costPrice: updated.costPrice }
-  })
+  }, { timeout: 15000 })
 
   broadcastCatalogUpdate()
   res.status(201).json(result)

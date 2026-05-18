@@ -50,11 +50,21 @@ model Category {
   products Product[]
 }
 
+/// Agrupa variantes de una misma bebida (ej: "Coca-Cola" agrupa Coca 1L y Coca 2.25L).
+/// Permite que un trago consuma de cualquier variante del grupo.
+model ProductGroup {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
 model Product {
   id               Int             @id @default(autoincrement())
   name             String
   categoryId       Int
   category         Category        @relation(fields: [categoryId], references: [id])
+  grupoId          Int?
+  grupo            ProductGroup?   @relation(fields: [grupoId], references: [id])
   unit             String
   currentStock     Decimal         @default(0) @db.Decimal(10, 3)
   minStock         Decimal         @default(0) @db.Decimal(10, 3)

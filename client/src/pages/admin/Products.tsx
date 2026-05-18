@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../lib/api'
-import { Product, Category } from '../../types'
+import { Product, Category, ProductGroup } from '../../types'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Badge from '../../components/ui/Badge'
@@ -9,7 +9,7 @@ import { useToast } from '../../context/ToastContext'
 import { useConfirm } from '../../context/ConfirmContext'
 
 const emptyForm = {
-  name: '', categoryId: '', unit: '', minStock: '0',
+  name: '', categoryId: '', grupoId: '', unit: '', minStock: '0',
   costPrice: '', salePrice: '', bottleSize: '', imageUrl: '', visibleInCatalog: false,
 }
 
@@ -21,6 +21,7 @@ export default function Products() {
   const navigate = useNavigate()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [grupos, setGrupos] = useState<ProductGroup[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -30,7 +31,8 @@ export default function Products() {
 
   useEffect(() => {
     load()
-    api.get<Category[]>('/categories').then((r) => setCategories(r.data))
+    api.get<Category[]>('/categories').then((r) => setCategories(r.data)).catch(() => {})
+    api.get<ProductGroup[]>('/grupos').then((r) => setGrupos(r.data)).catch(() => {})
   }, [])
 
   async function load() {
@@ -54,6 +56,7 @@ export default function Products() {
     setForm({
       name: p.name,
       categoryId: String(p.category.id),
+      grupoId: p.grupo ? String(p.grupo.id) : '',
       unit: p.unit,
       minStock: p.minStock,
       costPrice: p.costPrice ?? '',
@@ -81,6 +84,7 @@ export default function Products() {
     const body = {
       name: form.name,
       categoryId: parseInt(form.categoryId),
+      grupoId:    form.grupoId ? parseInt(form.grupoId) : null,
       unit: form.unit,
       minStock: parseFloat(form.minStock),
       costPrice: form.costPrice ? parseFloat(form.costPrice) : undefined,
@@ -226,6 +230,17 @@ export default function Products() {
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium uppercase tracking-wide text-zinc-400">Grupo de variantes (opcional)</label>
+              <select value={form.grupoId} onChange={(e) => setForm({ ...form, grupoId: e.target.value })} className={selectClass}>
+                <option value="">Sin grupo</option>
+                {grupos.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+              <p className="text-[11px] text-zinc-500">
+                Si este producto es una variante de tamaño (ej: "Coca 1L"), asignalo a su grupo
+                para que los tragos puedan usar cualquier variante.
+              </p>
+            </div>
             <Input label="Unidad" placeholder="unidades, litros, kg..." value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
             <Input label="Stock mínimo" type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -307,9 +322,10 @@ export default function Products() {
           <div key={p.id} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold text-zinc-100">{p.name}</p>
                   {p.visibleInCatalog && <Badge label="Catálogo" color="orange" />}
+                  {p.grupo && <Badge label={`Grupo: ${p.grupo.name}`} color="gray" />}
                 </div>
                 <p className="text-xs text-zinc-500">{p.category.name} · {p.unit}</p>
                 <div className="mt-2 flex items-center gap-3">

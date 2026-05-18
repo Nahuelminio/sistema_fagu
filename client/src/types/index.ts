@@ -16,6 +16,12 @@ export interface Category {
   order?: number
 }
 
+export interface ProductGroup {
+  id: number
+  name: string
+  products?: { id: number; name: string; currentStock: string; unit: string; bottleSize: string | null }[]
+}
+
 export interface Product {
   id: number
   name: string
@@ -31,6 +37,7 @@ export interface Product {
   createdAt: string
   updatedAt: string
   category: Category
+  grupo?: { id: number; name: string } | null
 }
 
 export interface StockMovement {

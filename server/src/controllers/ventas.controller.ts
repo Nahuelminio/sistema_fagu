@@ -45,11 +45,20 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     ? await prisma.product.findMany({ where: { id: { in: productItems.map((i) => i.productId) } } })
     : []
 
-  // Cargar tragos con sus ingredientes
+  // Cargar tragos con sus ingredientes. Incluimos el grupo de cada producto
+  // ingrediente (y los productos del grupo) para soportar variantes intercambiables.
   const tragos = tragoItems.length
     ? await prisma.trago.findMany({
         where: { id: { in: tragoItems.map((i) => i.tragoId) } },
-        include: { ingredientes: { include: { product: true } } },
+        include: {
+          ingredientes: {
+            include: {
+              product: {
+                include: { grupo: { include: { products: { select: { id: true, name: true } } } } },
+              },
+            },
+          },
+        },
       })
     : []
 
@@ -75,72 +84,72 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     }
   }
 
-  // ── Acumular requerimientos por ingrediente de tragos ────────────────────
-  const stockRequerido = new Map<number, number>()
+  // ── Resolver ingredientes de tragos a botellas (con soporte de grupos) ───
+  // Cada ingrediente apunta a un producto. Si ese producto tiene grupo, la
+  // botella puede ser de CUALQUIER producto del grupo (variantes intercambiables).
+  interface IngredienteReq { oz: number; candidatos: number[]; nombre: string }
+  const reqPorKey = new Map<string, IngredienteReq>()
+
   for (const item of tragoItems) {
     const trago = tragos.find((t) => t.id === item.tragoId)!
     for (const ing of trago.ingredientes) {
-      const prev = stockRequerido.get(ing.productId) ?? 0
-      stockRequerido.set(ing.productId, prev + Number(ing.cantidad) * item.quantity)
+      const p   = ing.product
+      const key = p.grupoId ? `g:${p.grupoId}` : `p:${p.id}`
+      const oz  = Number(ing.cantidad) * item.quantity
+      const existing = reqPorKey.get(key)
+      if (existing) {
+        existing.oz += oz
+      } else {
+        const candidatos = p.grupoId && p.grupo
+          ? p.grupo.products.map((gp) => gp.id)
+          : [p.id]
+        reqPorKey.set(key, { oz, candidatos, nombre: p.grupo?.name ?? p.name })
+      }
     }
   }
 
-  // ── Cargar botellas activas para los ingredientes ────────────────────────
-  const ingredientIds = [...stockRequerido.keys()]
-  const botellas = ingredientIds.length
-    ? await prisma.botellaActiva.findMany({ where: { productId: { in: ingredientIds } } })
+  // Cargar botellas activas + productos de TODOS los candidatos
+  const allCandidatos = [...new Set([...reqPorKey.values()].flatMap((r) => r.candidatos))]
+  const botellas = allCandidatos.length
+    ? await prisma.botellaActiva.findMany({ where: { productId: { in: allCandidatos } } })
     : []
-  const botellaMap = new Map(botellas.map((b) => [b.productId, b]))
-
-  // ── Validar disponibilidad por ingrediente ───────────────────────────────
-  // Con botella activa → verificar restante
-  // Sin botella activa → verificar currentStock
-  const sinBotella = ingredientIds.filter((id) => !botellaMap.has(id))
-  const productsSinBotella = sinBotella.length
-    ? await prisma.product.findMany({ where: { id: { in: sinBotella } } })
+  const candidatosProducts = allCandidatos.length
+    ? await prisma.product.findMany({ where: { id: { in: allCandidatos } } })
     : []
 
-  for (const [productId, requerido] of stockRequerido.entries()) {
-    const botella = botellaMap.get(productId)
+  // Resolver el consumo: para cada ingrediente, qué botella/stock se descuenta
+  interface ConsumoTrago { botellaId: number | null; productId: number; oz: number; nombre: string }
+  const consumos: ConsumoTrago[] = []
+
+  for (const [, req2] of reqPorKey) {
+    const botella = botellas.find((b) => req2.candidatos.includes(b.productId))
     if (botella) {
-      if (Number(botella.restante) < requerido) {
-        const p = productsSinBotella.find((p) => p.id === productId)
-          ?? tragos.flatMap((t) => t.ingredientes).find((i) => i.productId === productId)?.product
+      if (Number(botella.restante) < req2.oz) {
         res.status(400).json({
-          error: `Botella insuficiente para "${p?.name ?? 'ingrediente'}" (quedan ${Number(botella.restante).toFixed(1)} oz, se necesitan ${requerido} oz)`,
-          available: botella.restante,
-          required: requerido,
+          error: `Botella insuficiente para "${req2.nombre}" (quedan ${Number(botella.restante).toFixed(1)} oz, se necesitan ${req2.oz} oz)`,
         })
         return
       }
+      consumos.push({ botellaId: botella.id, productId: botella.productId, oz: req2.oz, nombre: req2.nombre })
     } else {
-      const product = productsSinBotella.find((p) => p.id === productId)
-      if (!product) {
-        res.status(400).json({ error: 'Ingrediente no encontrado' })
-        return
-      }
-      // Si el producto es tipo botella, hay que abrir una botella primero
-      if (product.bottleSize) {
-        if (Number(product.currentStock) < 1) {
-          res.status(400).json({
-            error: `No hay stock de "${product.name}" (necesitás abrir una botella)`,
-          })
-          return
-        }
+      const candProds = candidatosProducts.filter((p) => req2.candidatos.includes(p.id))
+      const esBotella = candProds.some((p) => p.bottleSize)
+      if (esBotella) {
+        const hayStock = candProds.some((p) => Number(p.currentStock) >= 1)
         res.status(400).json({
-          error: `Tenés que abrir una botella de "${product.name}" antes de vender este trago`,
+          error: hayStock
+            ? `Tenés que abrir una botella de "${req2.nombre}" antes de vender este trago`
+            : `No hay stock de "${req2.nombre}"`,
         })
         return
       }
-      // Producto sin botella (ej: ingrediente seco) — descuento directo
-      if (Number(product.currentStock) < requerido) {
-        res.status(400).json({
-          error: `Stock insuficiente para "${product.name}"`,
-          available: product.currentStock,
-          required: requerido,
-        })
+      // Ingrediente sin botella (ej: seco) — descuento directo del primer candidato
+      const prod = candProds[0]
+      if (!prod || Number(prod.currentStock) < req2.oz) {
+        res.status(400).json({ error: `Stock insuficiente para "${req2.nombre}"` })
         return
       }
+      consumos.push({ botellaId: null, productId: prod.id, oz: req2.oz, nombre: req2.nombre })
     }
   }
 
@@ -230,34 +239,28 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
       // Sin botella activa  → descuenta stock + movimiento SALIDA
       const tragoOps: Promise<unknown>[] = []
 
-      for (const [productId, cantTotal] of stockRequerido.entries()) {
-        const botella = botellaMap.get(productId)
-        if (botella) {
-          // Solo descuenta de la botella activa
+      for (const c of consumos) {
+        if (c.botellaId) {
           tragoOps.push(
             tx.botellaActiva.update({
-              where: { id: botella.id },
-              data: { restante: { decrement: cantTotal } },
+              where: { id: c.botellaId },
+              data: { restante: { decrement: c.oz } },
             })
           )
         } else {
-          // Sin botella: descuenta stock + movimiento
-          const ingName = tragos
-            .flatMap((t) => t.ingredientes)
-            .find((i) => i.productId === productId)?.product.name ?? 'ingrediente'
           tragoOps.push(
             tx.stockMovement.create({
               data: {
-                productId,
+                productId: c.productId,
                 userId: req.user!.userId,
                 type: 'SALIDA',
-                quantity: cantTotal,
-                notes: `Venta #${newSale.id} — ${ingName}`,
+                quantity: c.oz,
+                notes: `Venta #${newSale.id} — ${c.nombre}`,
               },
             }),
             tx.product.update({
-              where: { id: productId },
-              data: { currentStock: { decrement: cantTotal } },
+              where: { id: c.productId },
+              data: { currentStock: { decrement: c.oz } },
             })
           )
         }

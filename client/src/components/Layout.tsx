@@ -13,6 +13,7 @@ const adminLinks = [
   { to: '/tragos',      label: 'Tragos'        },
   { to: '/botellas',    label: 'Botellas'      },
   { to: '/productos',   label: 'Productos'     },
+  { to: '/grupos',      label: 'Grupos'        },
   { to: '/movimientos', label: 'Inventario'    },
   { to: '/clientes',    label: 'Clientes'      },
   { to: '/qr-catalogo', label: 'QR catálogo'   },

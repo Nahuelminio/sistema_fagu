@@ -7,6 +7,7 @@ import { broadcastCatalogUpdate } from '../services/sse.service'
 const productSchema = z.object({
   name: z.string().min(1),
   categoryId: z.number().int().positive(),
+  grupoId: z.number().int().positive().nullable().optional(),
   unit: z.string().min(1),
   minStock: z.number().min(0).default(0),
   costPrice: z.number().positive().optional(),
@@ -30,6 +31,7 @@ const productSelect = {
   createdAt: true,
   updatedAt: true,
   category: { select: { id: true, name: true } },
+  grupo:    { select: { id: true, name: true } },
 }
 
 export async function getAll(_req: AuthRequest, res: Response): Promise<void> {
