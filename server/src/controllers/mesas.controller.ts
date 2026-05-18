@@ -41,9 +41,14 @@ export async function deleteMesa(req: AuthRequest, res: Response): Promise<void>
   const id = parseInt(req.params.id)
   if (isNaN(id)) { res.status(400).json({ error: 'ID inválido' }); return }
 
-  const openComanda = await prisma.comanda.findFirst({ where: { mesaId: id, status: 'ABIERTA' } })
-  if (openComanda) {
-    res.status(400).json({ error: 'No se puede eliminar una cuenta con comanda abierta. Cerrala primero.' }); return
+  // Solo bloquea si hay una comanda abierta CON items (pedidos sin cobrar).
+  // Una comanda abierta vacía no es problema — se borra junto con la mesa.
+  const openComanda = await prisma.comanda.findFirst({
+    where: { mesaId: id, status: 'ABIERTA' },
+    include: { _count: { select: { items: true } } },
+  })
+  if (openComanda && openComanda._count.items > 0) {
+    res.status(400).json({ error: 'No se puede eliminar: la cuenta tiene pedidos sin cobrar. Cobrala o sacá los ítems primero.' }); return
   }
 
   try {
