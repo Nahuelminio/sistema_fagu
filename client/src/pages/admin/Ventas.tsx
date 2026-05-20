@@ -152,7 +152,7 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
               {venta.motivoAnulacion && (
                 <p className="text-xs text-zinc-300 mt-1 italic">"{venta.motivoAnulacion}"</p>
               )}
-              {venta.ncCae && (
+              {venta.ncCae ? (
                 <div className="mt-2 pt-2 border-t border-red-500/20">
                   <p className="text-xs text-zinc-400">
                     Nota de Crédito:{' '}
@@ -164,7 +164,27 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
                     CAE NC: <span className="font-mono text-zinc-300">{venta.ncCae}</span>
                   </p>
                 </div>
-              )}
+              ) : venta.cae ? (
+                <div className="mt-2 pt-2 border-t border-red-500/20">
+                  <p className="text-xs text-yellow-400">
+                    ⚠ Nota de Crédito pendiente — ARCA no respondió al anular
+                  </p>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const r = await api.post<{ ok: boolean; nc: { puntoVenta: number; nroFactura: number } }>(`/ventas/${venta.id}/retry-nc`)
+                        showToast(`NC emitida: ${String(r.data.nc.puntoVenta).padStart(4, '0')}-${String(r.data.nc.nroFactura).padStart(8, '0')}`)
+                        onAnular()
+                      } catch (err: any) {
+                        showToast(err?.response?.data?.error ?? err?.response?.data?.detalle ?? 'Error', 'error')
+                      }
+                    }}
+                    className="mt-2 rounded-lg bg-yellow-500/20 border border-yellow-500/30 px-3 py-1 text-xs font-semibold text-yellow-300 hover:bg-yellow-500/30 transition"
+                  >
+                    Reintentar NC
+                  </button>
+                </div>
+              ) : null}
             </div>
           )}
 
