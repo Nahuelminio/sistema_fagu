@@ -68,7 +68,24 @@ export default function FacturaModal({ sale, onClose }: { sale: Sale; onClose: (
 
   const nroComp = `${String(sale.puntoVenta ?? 6).padStart(4, '0')}-${String(sale.nroFactura ?? 0).padStart(8, '0')}`
 
-  function handlePrint() { window.print() }
+  function handlePrint() {
+    const node = document.getElementById('factura-print')
+    if (!node) return
+    // Movemos temporalmente el nodo al <body> directo. Asi podemos
+    // ocultar el resto sin afectar al modal (que es hijo del #root).
+    const parent = node.parentNode
+    const nextSibling = node.nextSibling
+    document.body.appendChild(node)
+    document.body.classList.add('printing-factura')
+
+    const cleanup = () => {
+      if (parent) parent.insertBefore(node, nextSibling)
+      document.body.classList.remove('printing-factura')
+      window.removeEventListener('afterprint', cleanup)
+    }
+    window.addEventListener('afterprint', cleanup)
+    window.print()
+  }
 
   return (
     <div
@@ -239,9 +256,27 @@ export default function FacturaModal({ sale, onClose }: { sale: Sale; onClose: (
       {/* Estilos de impresión */}
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          #factura-print, #factura-print * { visibility: visible; }
-          #factura-print { position: absolute; left: 0; top: 0; width: 100%; }
+          @page { size: A4; margin: 12mm; }
+          /* Cuando el body tiene la clase printing-factura, el nodo #factura-print
+             fue movido a body directo. Ocultamos todo lo demás. */
+          body.printing-factura {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          body.printing-factura > *:not(#factura-print) {
+            display: none !important;
+          }
+          body.printing-factura #factura-print {
+            position: static !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
         }
       `}</style>
     </div>

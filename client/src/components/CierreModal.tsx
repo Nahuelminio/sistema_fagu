@@ -64,7 +64,22 @@ export default function CierreModal({ cajaId, onClose }: { cajaId: number; onClo
       .finally(() => setLoading(false))
   }, [cajaId])
 
-  function handlePrint() { window.print() }
+  function handlePrint() {
+    const node = document.getElementById('cierre-print')
+    if (!node) return
+    const parent = node.parentNode
+    const nextSibling = node.nextSibling
+    document.body.appendChild(node)
+    document.body.classList.add('printing-cierre')
+
+    const cleanup = () => {
+      if (parent) parent.insertBefore(node, nextSibling)
+      document.body.classList.remove('printing-cierre')
+      window.removeEventListener('afterprint', cleanup)
+    }
+    window.addEventListener('afterprint', cleanup)
+    window.print()
+  }
 
   if (loading) {
     return (
@@ -246,9 +261,23 @@ export default function CierreModal({ cajaId, onClose }: { cajaId: number; onClo
 
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          #cierre-print, #cierre-print * { visibility: visible; }
-          #cierre-print { position: absolute; left: 0; top: 0; width: 100%; }
+          @page { size: A4; margin: 12mm; }
+          body.printing-cierre {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          body.printing-cierre > *:not(#cierre-print) { display: none !important; }
+          body.printing-cierre #cierre-print {
+            position: static !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
         }
       `}</style>
     </div>

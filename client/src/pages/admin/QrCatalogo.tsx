@@ -9,7 +9,22 @@ export default function QrCatalogo() {
   const [url, setUrl] = useState(defaultUrl)
   const [size, setSize] = useState(280)
 
-  function handlePrint() { window.print() }
+  function handlePrint() {
+    const node = document.getElementById('qr-print')
+    if (!node) return
+    const parent = node.parentNode
+    const nextSibling = node.nextSibling
+    document.body.appendChild(node)
+    document.body.classList.add('printing-qr')
+
+    const cleanup = () => {
+      if (parent) parent.insertBefore(node, nextSibling)
+      document.body.classList.remove('printing-qr')
+      window.removeEventListener('afterprint', cleanup)
+    }
+    window.addEventListener('afterprint', cleanup)
+    window.print()
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -73,15 +88,19 @@ export default function QrCatalogo() {
 
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          #qr-print, #qr-print * { visibility: visible; }
-          #qr-print {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: none;
-            max-width: none;
+          @page { size: A4; margin: 20mm; }
+          body.printing-qr {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          body.printing-qr > *:not(#qr-print) { display: none !important; }
+          body.printing-qr #qr-print {
+            position: static !important;
+            margin: 0 auto !important;
+            box-shadow: none !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
         }
       `}</style>
