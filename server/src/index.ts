@@ -67,4 +67,5 @@ if (isProd) {
 }
 
 const PORT = process.env.PORT ?? 3001
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+const BUILD_TAG = 'v2-' + Date.now()
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (${BUILD_TAG})`))
