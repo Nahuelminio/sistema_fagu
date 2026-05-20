@@ -663,3 +663,61 @@ export async function anularVenta(req: AuthRequest, res: Response): Promise<void
     ncError,
   })
 }
+
+/** Reintenta emitir la NC en ARCA para una venta anulada que tiene CAE pero no ncCae.
+ *  Útil si la NC falló al anular (timeout de AFIP, etc.). Admin-only. */
+export async function reintentarNotaCredito(req: AuthRequest, res: Response): Promise<void> {
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  const sale = await prisma.sale.findUnique({ where: { id } })
+  if (!sale) { res.status(404).json({ error: 'Venta no encontrada' }); return }
+  if (!sale.anulada) { res.status(400).json({ error: 'La venta no está anulada' }); return }
+  if (!sale.cae || !sale.nroFactura || !sale.puntoVenta) {
+    res.status(400).json({ error: 'La venta no tiene factura ARCA — no hay NC para emitir' }); return
+  }
+  if (sale.ncCae) { res.status(400).json({ error: 'La venta ya tiene NC emitida' }); return }
+
+  try {
+    const cliente = sale.clienteId
+      ? await prisma.cliente.findUnique({
+          where: { id: sale.clienteId },
+          select: { nombre: true, cuit: true, dni: true, email: true },
+        })
+      : null
+
+    const facturaResult = await emitirNotaCredito({
+      total:   Number(sale.total),
+      cliente: cliente,
+      facturaOriginal: {
+        cbteTipo:   getCbteTipo(),
+        puntoVenta: sale.puntoVenta,
+        nroFactura: sale.nroFactura,
+        fecha:      sale.createdAt,
+      },
+    })
+
+    if (!facturaResult) {
+      res.status(400).json({ error: 'ARCA deshabilitado o sin certificados' })
+      return
+    }
+
+    await prisma.sale.update({
+      where: { id: sale.id },
+      data: {
+        ncCae:            facturaResult.cae,
+        ncCaeVencimiento: facturaResult.caeVencimiento,
+        ncNroFactura:     facturaResult.nroFactura,
+        ncPuntoVenta:     facturaResult.puntoVenta,
+        ncCbteTipo:       getCbteTipo() + 2,
+      },
+    })
+    res.json({ ok: true, nc: facturaResult })
+  } catch (err: any) {
+    res.status(500).json({
+      error:      'ARCA rechazó la Nota de Crédito',
+      detalle:    err?.message ?? String(err),
+      errorCode:  err?.code,
+    })
+  }
+}
