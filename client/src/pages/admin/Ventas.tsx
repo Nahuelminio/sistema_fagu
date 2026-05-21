@@ -25,6 +25,7 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
   const [open, setOpen] = useState(false)
   const [showFactura, setShowFactura] = useState(false)
   const [showAnular, setShowAnular] = useState(false)
+  const [showEditar, setShowEditar] = useState(false)
   const hasFactura = !!venta.cae
   const isAnulada  = !!venta.anulada
 
@@ -188,9 +189,15 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
             </div>
           )}
 
-          {/* Botón anular — solo si no está ya anulada */}
+          {/* Botones de acción — solo si no está anulada */}
           {!isAnulada && (
-            <div className="mt-3 border-t border-zinc-800 pt-3 flex justify-end">
+            <div className="mt-3 border-t border-zinc-800 pt-3 flex justify-end gap-2">
+              <button
+                onClick={() => setShowEditar(true)}
+                className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition"
+              >
+                Editar
+              </button>
               <button
                 onClick={() => setShowAnular(true)}
                 className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-950/60 transition"
@@ -211,6 +218,104 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
           onClose={() => setShowAnular(false)}
         />
       )}
+      {showEditar && (
+        <EditarVentaModal
+          venta={venta}
+          onClose={() => setShowEditar(false)}
+          onSaved={() => { setShowEditar(false); onAnular() }}
+        />
+      )}
+    </div>
+  )
+}
+
+/** Modal para editar método de pago y notas de una venta */
+function EditarVentaModal({
+  venta, onClose, onSaved,
+}: {
+  venta: Sale
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const { showToast } = useToast()
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(venta.paymentMethod as PaymentMethod)
+  const [notes, setNotes] = useState(venta.notes ?? '')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await api.patch(`/ventas/${venta.id}`, {
+        paymentMethod,
+        notes: notes.trim() || null,
+      })
+      showToast('Venta actualizada')
+      onSaved()
+    } catch (err: any) {
+      showToast(err?.response?.data?.error ?? 'Error al guardar', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+        <h3 className="text-base font-semibold text-zinc-100">Editar venta #{venta.id}</h3>
+        <p className="mt-1 text-xs text-zinc-500">Podés modificar el método de pago y las notas. Los items y el total no se pueden cambiar.</p>
+
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">Método de pago</p>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => setPaymentMethod(m)}
+                className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                  paymentMethod === m
+                    ? 'border-brand-500 bg-brand-500 text-white'
+                    : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
+                }`}
+              >
+                {PAYMENT_LABELS[m]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">Notas</p>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Observaciones..."
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand-500 resize-none"
+          />
+        </div>
+
+        {venta.cae && (
+          <p className="mt-3 rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-3 py-2 text-[11px] text-yellow-300">
+            Esta venta ya tiene factura electrónica. Cambiar el método de pago no modifica la factura emitida en ARCA.
+          </p>
+        )}
+
+        <div className="mt-5 flex gap-2 justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700 transition"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-400 transition disabled:opacity-50"
+          >
+            {saving ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

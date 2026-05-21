@@ -721,3 +721,42 @@ export async function reintentarNotaCredito(req: AuthRequest, res: Response): Pr
     })
   }
 }
+
+const editarVentaSchema = z.object({
+  paymentMethod: z.enum(PAYMENT_METHODS).optional(),
+  notes:         z.string().nullable().optional(),
+  clienteId:     z.number().int().positive().nullable().optional(),
+})
+
+/** Editar una venta (admin). Solo permite cambiar metodo de pago, notas y cliente.
+ *  El total, items y CAE quedan inmutables — son datos legales/financieros. */
+export async function editarVenta(req: AuthRequest, res: Response): Promise<void> {
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  const parsed = editarVentaSchema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() })
+    return
+  }
+
+  const sale = await prisma.sale.findUnique({ where: { id } })
+  if (!sale) { res.status(404).json({ error: 'Venta no encontrada' }); return }
+  if (sale.anulada) { res.status(400).json({ error: 'No se puede editar una venta anulada' }); return }
+
+  const data: Record<string, unknown> = {}
+  if (parsed.data.paymentMethod !== undefined) data.paymentMethod = parsed.data.paymentMethod
+  if (parsed.data.notes !== undefined)         data.notes         = parsed.data.notes
+  if (parsed.data.clienteId !== undefined)     data.clienteId     = parsed.data.clienteId
+
+  const updated = await prisma.sale.update({
+    where: { id },
+    data,
+    include: {
+      items:   { include: { product: { select: { id: true, name: true, unit: true } }, trago: { select: { id: true, name: true } } } },
+      user:    { select: { id: true, name: true } },
+      cliente: { select: { id: true, nombre: true, cuit: true, dni: true } },
+    },
+  })
+  res.json(updated)
+}

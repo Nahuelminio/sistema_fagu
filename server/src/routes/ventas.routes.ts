@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express'
-import { createVenta, getVentas, getRanking, exportVentasCSV, anularVenta, reintentarNotaCredito } from '../controllers/ventas.controller'
+import { createVenta, getVentas, getRanking, exportVentasCSV, anularVenta, reintentarNotaCredito, editarVenta } from '../controllers/ventas.controller'
 import { authenticate } from '../middlewares/auth.middleware'
 import { requireAdmin } from '../middlewares/role.middleware'
 import { asyncHandler } from '../utils/asyncHandler'
@@ -16,6 +16,7 @@ router.get('/arca-test',   requireAdmin, asyncHandler(async (_req: Request, res:
   const result = await testArca()
   res.json(result)
 }))
+router.patch('/:id',         requireAdmin, asyncHandler(editarVenta))
 router.post('/:id/anular',   requireAdmin, asyncHandler(anularVenta))
 router.post('/:id/retry-nc', requireAdmin, asyncHandler(reintentarNotaCredito))
 
