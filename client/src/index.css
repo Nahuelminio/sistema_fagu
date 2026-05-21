@@ -3,6 +3,13 @@
 @tailwind utilities;
 
 @layer base {
+  /* Tamaño base un poco más grande para que todo se lea más cómodo.
+     Tailwind usa rem, así que esto escala TODA la app proporcionalmente.
+     Default del navegador: 16px. */
+  html {
+    font-size: 17.5px;
+  }
+
   body {
     @apply antialiased bg-zinc-950 text-zinc-100;
   }
