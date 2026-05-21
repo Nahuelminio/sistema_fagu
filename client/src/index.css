@@ -7,7 +7,7 @@
      Tailwind usa rem, así que esto escala TODA la app proporcionalmente.
      Default del navegador: 16px. */
   html {
-    font-size: 17.5px;
+    font-size: 19px;
   }
 
   body {
