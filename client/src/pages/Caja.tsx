@@ -447,9 +447,9 @@ export default function Caja() {
         <div>
           <div className="flex items-end justify-between gap-2 mb-3 flex-wrap">
             <div>
-              <h2 className="text-base font-bold text-zinc-200">Historial de cierres</h2>
+              <h2 className="text-lg font-bold text-zinc-100">Historial de cierres</h2>
               {stats && stats.cantCierres > 0 && (
-                <p className="text-xs text-zinc-500">
+                <p className="text-sm text-zinc-400 mt-0.5">
                   {stats.cantCierres} cierres · vendido {ARS(stats.totalAcumulado)} ·
                   <span className={`ml-1 ${stats.diferenciaAcumulada === 0 ? 'text-green-400' : stats.diferenciaAcumulada > 0 ? 'text-yellow-400' : 'text-red-400'}`}>
                     diferencia neta {ARS(stats.diferenciaAcumulada)}
@@ -462,15 +462,15 @@ export default function Caja() {
           {/* Filtros */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3 mb-3 flex flex-col md:flex-row gap-2 md:items-end">
             <div className="flex-1">
-              <label className="text-xs text-zinc-500">Desde</label>
+              <label className="text-sm text-zinc-400 block mb-1">Desde</label>
               <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand-500"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-base text-zinc-100 outline-none focus:border-brand-500"
               />
             </div>
             <div className="flex-1">
-              <label className="text-xs text-zinc-500">Hasta</label>
+              <label className="text-sm text-zinc-400 block mb-1">Hasta</label>
               <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand-500"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-base text-zinc-100 outline-none focus:border-brand-500"
               />
             </div>
             <div className="flex gap-2">
@@ -489,14 +489,14 @@ export default function Caja() {
                   <div key={c.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-zinc-100">
+                        <p className="text-base font-semibold text-zinc-100">
                           {new Date(c.fechaApertura).toLocaleDateString('es-AR')}
                           {' '}
                           <span className="text-zinc-500">→</span>
                           {' '}
                           {new Date(c.fechaCierre).toLocaleDateString('es-AR')}
                         </p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-sm text-zinc-400 mt-0.5">
                           {c.user.name} ·{' '}
                           {new Date(c.fechaApertura).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                           {' a '}
@@ -505,25 +505,25 @@ export default function Caja() {
                           {c.cantVentas} ventas · {ARS(c.totalVentas)}
                         </p>
                       </div>
-                      <span className={`text-sm font-bold shrink-0 ${dif === 0 ? 'text-green-400' : dif > 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                      <span className={`text-base font-bold shrink-0 ${dif === 0 ? 'text-green-400' : dif > 0 ? 'text-yellow-400' : 'text-red-400'}`}>
                         {dif === 0 ? 'OK' : ARS(dif)}
                       </span>
                     </div>
-                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
                       <div>
-                        <p className="text-zinc-600">Fondo</p>
-                        <p className="text-zinc-300 font-medium">{ARS(Number(c.fondoInicial))}</p>
+                        <p className="text-zinc-500 text-xs">Fondo</p>
+                        <p className="text-zinc-200 font-semibold">{ARS(Number(c.fondoInicial))}</p>
                       </div>
                       <div>
-                        <p className="text-zinc-600">Esperado</p>
-                        <p className="text-zinc-300 font-medium">{ARS(Number(c.efectivoEsperado))}</p>
+                        <p className="text-zinc-500 text-xs">Esperado</p>
+                        <p className="text-zinc-200 font-semibold">{ARS(Number(c.efectivoEsperado))}</p>
                       </div>
                       <div>
-                        <p className="text-zinc-600">Contado</p>
-                        <p className="text-zinc-300 font-medium">{ARS(Number(c.efectivoContado))}</p>
+                        <p className="text-zinc-500 text-xs">Contado</p>
+                        <p className="text-zinc-200 font-semibold">{ARS(Number(c.efectivoContado))}</p>
                       </div>
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2 items-center text-xs">
+                    <div className="mt-3 flex flex-wrap gap-2 items-center text-sm">
                       <button
                         onClick={() => setCierreVerId(c.id)}
                         className="rounded-lg bg-brand-500 px-3 py-1.5 font-semibold text-white hover:bg-brand-400 transition"
