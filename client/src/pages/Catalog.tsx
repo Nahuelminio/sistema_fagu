@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useCatalog } from '../hooks/useCatalog'
 import { CatalogItem } from '../types'
 
-const formatARS = (n: number) =>
-  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+/** En el catálogo público mostramos el precio con un ⚡ en lugar del $ */
+const formatPrecio = (n: number) =>
+  `⚡${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)}`
 
 export default function Catalog() {
   const { data, loading, error } = useCatalog()
@@ -178,7 +179,7 @@ function ItemCard({ item }: { item: CatalogItem }) {
         </div>
         {item.salePrice && (
           <p className="text-lg font-bold text-brand-400 shrink-0">
-            {formatARS(Number(item.salePrice))}
+            {formatPrecio(Number(item.salePrice))}
           </p>
         )}
       </div>
