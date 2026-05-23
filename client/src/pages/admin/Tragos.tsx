@@ -58,6 +58,7 @@ export default function Tragos() {
     setVisibleInCatalog(false)
     setIngs([{ productId: '', cantidad: '' }])
     setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function openEdit(t: Trago) {
@@ -69,6 +70,7 @@ export default function Tragos() {
     setVisibleInCatalog(t.visibleInCatalog ?? false)
     setIngs(t.ingredientes.map((i) => ({ productId: String(i.productId), cantidad: String(i.cantidad) })))
     setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleToggleCatalog(t: Trago) {
