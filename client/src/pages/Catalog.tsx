@@ -2,9 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import { useCatalog } from '../hooks/useCatalog'
 import { CatalogItem } from '../types'
 
-/** En el catálogo público mostramos el precio con un ⚡ en lugar del $ */
+/** Formato del precio sin signo (solo el número con separadores de miles) */
 const formatPrecio = (n: number) =>
-  `⚡${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)}`
+  new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)
+
+/** Ícono rayo. Usa currentColor → toma el color del texto del padre */
+function RayoIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="inline-block h-[0.9em] w-[0.9em] -mt-0.5"
+      aria-hidden="true"
+    >
+      <path d="M13 2L3 14h7l-1 8 11-13h-7l1-7z" />
+    </svg>
+  )
+}
 
 export default function Catalog() {
   const { data, loading, error } = useCatalog()
@@ -178,7 +192,8 @@ function ItemCard({ item }: { item: CatalogItem }) {
           )}
         </div>
         {item.salePrice && (
-          <p className="text-lg font-bold text-brand-400 shrink-0">
+          <p className="text-lg font-bold text-brand-400 shrink-0 flex items-center gap-0.5">
+            <RayoIcon />
             {formatPrecio(Number(item.salePrice))}
           </p>
         )}
