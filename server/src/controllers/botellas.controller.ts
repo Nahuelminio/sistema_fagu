@@ -86,6 +86,30 @@ export async function abrirBotella(req: AuthRequest, res: Response): Promise<voi
 
 export async function cerrarBotella(req: AuthRequest, res: Response): Promise<void> {
   const productId = parseInt(req.params.productId)
-  await prisma.botellaActiva.deleteMany({ where: { productId } })
+  if (isNaN(productId)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  await prisma.$transaction(async (tx) => {
+    const botella = await tx.botellaActiva.findUnique({
+      where: { productId },
+      include: { product: { select: { name: true } } },
+    })
+    if (!botella) return
+
+    const ozRemanente = Number(botella.restante)
+    // Log de ajuste: dejamos rastro de cuántos oz se descartaron al cerrar la botella
+    if (ozRemanente > 0) {
+      await tx.stockMovement.create({
+        data: {
+          productId,
+          userId: req.user!.userId,
+          type: 'AJUSTE',
+          quantity: ozRemanente,
+          notes: `Cierre manual de botella (${botella.product.name}): ${ozRemanente.toFixed(2)} oz descartados`,
+        },
+      })
+    }
+    await tx.botellaActiva.delete({ where: { id: botella.id } })
+  }, { timeout: 10000 })
+
   res.status(204).send()
 }

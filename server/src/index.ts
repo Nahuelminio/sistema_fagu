@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
 import path from 'path'
 
 // Validate required env vars at startup
@@ -30,6 +32,16 @@ import { errorHandler } from './middlewares/error.middleware'
 const app = express()
 const isProd = process.env.NODE_ENV === 'production'
 
+// Si estamos detrás de un proxy (Railway), confiar en X-Forwarded-* para rate-limit por IP real
+if (isProd) app.set('trust proxy', 1)
+
+// Seguridad base
+app.use(helmet({
+  // El frontend ya es servido por la misma app y carga assets locales; CSP por defecto puede romper Vite/preview.
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}))
+
 // CORS: use explicit origin in production if set, otherwise allow all for dev
 const corsOrigin = process.env.CORS_ORIGIN ?? (isProd ? false : '*')
 app.use(cors({ origin: corsOrigin }))
@@ -37,7 +49,17 @@ app.use(cors({ origin: corsOrigin }))
 // Limit request body to 1 MB to prevent abuse
 app.use(express.json({ limit: '1mb' }))
 
+// Rate-limit específico para login: 10 intentos / 15 min por IP
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos de login. Esperá unos minutos.' },
+})
+
 // API routes
+app.use('/api/auth/login', loginLimiter)
 app.use('/api/auth',       authRoutes)
 app.use('/api/products',   productRoutes)
 app.use('/api/movements',  movementRoutes)

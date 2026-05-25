@@ -6,6 +6,10 @@ import { processFacturaYEmail } from '../utils/processFactura'
 
 const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MERCADOPAGO', 'CUENTA_CORRIENTE'] as const
 
+class StockError extends Error {
+  constructor(msg: string) { super(msg); this.name = 'StockError' }
+}
+
 // ── Mesas ────────────────────────────────────────────────────────────────────
 
 export async function getMesas(_req: AuthRequest, res: Response): Promise<void> {
@@ -91,7 +95,18 @@ export async function getComanda(req: AuthRequest, res: Response): Promise<void>
 
 export async function openComanda(req: AuthRequest, res: Response): Promise<void> {
   const mesaId = parseInt(req.params.mesaId)
+  if (isNaN(mesaId)) { res.status(400).json({ error: 'ID de mesa inválido' }); return }
   const notes  = (req.body.notes as string) ?? undefined
+
+  const mesa = await prisma.mesa.findUnique({ where: { id: mesaId } })
+  if (!mesa) { res.status(404).json({ error: 'Mesa no encontrada' }); return }
+
+  // Evitar abrir múltiples comandas ABIERTAS sobre la misma mesa
+  const existente = await prisma.comanda.findFirst({ where: { mesaId, status: 'ABIERTA' } })
+  if (existente) {
+    res.status(400).json({ error: 'La mesa ya tiene una cuenta abierta', comandaId: existente.id })
+    return
+  }
 
   const comanda = await prisma.comanda.create({
     data: { mesaId, userId: req.user!.userId, notes },
@@ -102,6 +117,7 @@ export async function openComanda(req: AuthRequest, res: Response): Promise<void
 
 export async function addItemToComanda(req: AuthRequest, res: Response): Promise<void> {
   const comandaId = parseInt(req.params.id)
+  if (isNaN(comandaId)) { res.status(400).json({ error: 'ID de comanda inválido' }); return }
   const parsed = addItemSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: 'Datos inválidos' }); return }
 
@@ -112,24 +128,22 @@ export async function addItemToComanda(req: AuthRequest, res: Response): Promise
     res.status(400).json({ error: 'Comanda no disponible' }); return
   }
 
-  let nombre = ''
-  let unitPrice = 0
-
   if (type === 'product') {
     const p = await prisma.product.findUnique({ where: { id } })
     if (!p) { res.status(404).json({ error: 'Producto no encontrado' }); return }
-    nombre    = p.name
-    unitPrice = Number(p.salePrice ?? 0)
+    // Aviso temprano si no hay stock — el descuento real se hace al cerrar la comanda
+    if (Number(p.currentStock) < quantity) {
+      res.status(400).json({ error: `Stock insuficiente para "${p.name}" (disponible: ${p.currentStock})` })
+      return
+    }
     await prisma.comandaItem.create({
-      data: { comandaId, productId: id, nombre, quantity, unitPrice },
+      data: { comandaId, productId: id, nombre: p.name, quantity, unitPrice: Number(p.salePrice ?? 0) },
     })
   } else {
     const t = await prisma.trago.findUnique({ where: { id } })
     if (!t) { res.status(404).json({ error: 'Trago no encontrado' }); return }
-    nombre    = t.name
-    unitPrice = Number(t.salePrice ?? 0)
     await prisma.comandaItem.create({
-      data: { comandaId, tragoId: id, nombre, quantity, unitPrice },
+      data: { comandaId, tragoId: id, nombre: t.name, quantity, unitPrice: Number(t.salePrice ?? 0) },
     })
   }
 
@@ -301,7 +315,9 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
 
   // Importar la lógica de createVenta sería complejo; llamamos directamente con prisma
   // Crear la venta y cerrar la comanda en una transacción
-  const sale = await prisma.$transaction(async (tx) => {
+  let sale
+  try {
+    sale = await prisma.$transaction(async (tx) => {
     const newSale = await tx.sale.create({
       data: {
         userId: req.user!.userId,
@@ -324,35 +340,45 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
       },
     })
 
-    // Descontar stock para productos directos
+    // Descontar stock para productos directos (atómico con guard)
     for (const item of comanda.items.filter((i) => i.productId)) {
-      await tx.product.update({
-        where: { id: item.productId! },
-        data: { currentStock: { decrement: Number(item.quantity) } },
+      const qty = Number(item.quantity)
+      const upd = await tx.product.updateMany({
+        where: { id: item.productId!, currentStock: { gte: qty } },
+        data:  { currentStock: { decrement: qty } },
       })
+      if (upd.count === 0) {
+        throw new StockError(`Stock insuficiente para "${item.nombre}" (otra operación consumió el stock)`)
+      }
       await tx.stockMovement.create({
         data: {
           productId: item.productId!,
           userId: req.user!.userId,
           type: 'SALIDA',
-          quantity: Number(item.quantity),
+          quantity: qty,
           notes: `Venta #${newSale.id} (Mesa ${comanda.mesa.numero})`,
         },
       })
     }
 
-    // Descontar oz para tragos — usa los `consumos` ya resueltos arriba
+    // Descontar oz para tragos — usa los `consumos` ya resueltos arriba (atómico)
     for (const c of consumos) {
       if (c.botellaId) {
-        await tx.botellaActiva.update({
-          where: { id: c.botellaId },
+        const upd = await tx.botellaActiva.updateMany({
+          where: { id: c.botellaId, restante: { gte: c.oz } },
           data:  { restante: { decrement: c.oz } },
         })
+        if (upd.count === 0) {
+          throw new StockError(`Botella insuficiente para "${c.nombre}" (otra operación consumió el contenido)`)
+        }
       } else {
-        await tx.product.update({
-          where: { id: c.productId },
+        const upd = await tx.product.updateMany({
+          where: { id: c.productId, currentStock: { gte: c.oz } },
           data:  { currentStock: { decrement: c.oz } },
         })
+        if (upd.count === 0) {
+          throw new StockError(`Stock insuficiente para "${c.nombre}"`)
+        }
         await tx.stockMovement.create({
           data: {
             productId: c.productId,
@@ -364,12 +390,6 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
         })
       }
     }
-    if (consumos.length > 0) {
-      await tx.botellaActiva.updateMany({
-        where: { restante: { lt: 0 } },
-        data:  { restante: 0 },
-      })
-    }
 
     // Cerrar comanda
     await tx.comanda.update({
@@ -379,6 +399,13 @@ export async function cerrarComanda(req: AuthRequest, res: Response): Promise<vo
 
     return newSale
   }, { timeout: 20000 })
+  } catch (err) {
+    if (err instanceof StockError) {
+      res.status(409).json({ error: err.message })
+      return
+    }
+    throw err
+  }
 
   // Facturación electrónica ARCA + email (no bloqueante)
   await processFacturaYEmail({

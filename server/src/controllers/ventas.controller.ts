@@ -8,6 +8,10 @@ import { emitirNotaCredito, getCbteTipo } from '../services/arca.service'
 
 const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MERCADOPAGO', 'CUENTA_CORRIENTE'] as const
 
+class StockError extends Error {
+  constructor(msg: string) { super(msg); this.name = 'StockError' }
+}
+
 const ventaSchema = z.object({
   items: z
     .array(
@@ -171,7 +175,9 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
     select: { id: true },
   })
 
-  const sale = await prisma.$transaction(
+  let sale
+  try {
+    sale = await prisma.$transaction(
     async (tx) => {
       const newSale = await tx.sale.create({
         data: {
@@ -217,9 +223,17 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
         },
       })
 
-      // ── Productos directos: SALIDA de stock ──────────────────────────────
-      const productOps = productItems.flatMap((item) => [
-        tx.stockMovement.create({
+      // ── Productos directos: SALIDA de stock (atómico con guard) ──────────
+      for (const item of productItems) {
+        const p = products.find((p) => p.id === item.productId)!
+        const updated = await tx.product.updateMany({
+          where: { id: item.productId, currentStock: { gte: item.quantity } },
+          data:  { currentStock: { decrement: item.quantity } },
+        })
+        if (updated.count === 0) {
+          throw new StockError(`Stock insuficiente para "${p.name}" (otra venta consumió el stock disponible)`)
+        }
+        await tx.stockMovement.create({
           data: {
             productId: item.productId,
             userId: req.user!.userId,
@@ -227,56 +241,52 @@ export async function createVenta(req: AuthRequest, res: Response): Promise<void
             quantity: item.quantity,
             notes: `Venta #${newSale.id}`,
           },
-        }),
-        tx.product.update({
-          where: { id: item.productId },
-          data: { currentStock: { decrement: item.quantity } },
-        }),
-      ])
-
-      // ── Ingredientes de tragos ────────────────────────────────────────────
-      // Con botella activa  → solo descuenta restante (stock ya salió al abrir la botella)
-      // Sin botella activa  → descuenta stock + movimiento SALIDA
-      const tragoOps: Promise<unknown>[] = []
-
-      for (const c of consumos) {
-        if (c.botellaId) {
-          tragoOps.push(
-            tx.botellaActiva.update({
-              where: { id: c.botellaId },
-              data: { restante: { decrement: c.oz } },
-            })
-          )
-        } else {
-          tragoOps.push(
-            tx.stockMovement.create({
-              data: {
-                productId: c.productId,
-                userId: req.user!.userId,
-                type: 'SALIDA',
-                quantity: c.oz,
-                notes: `Venta #${newSale.id} — ${c.nombre}`,
-              },
-            }),
-            tx.product.update({
-              where: { id: c.productId },
-              data: { currentStock: { decrement: c.oz } },
-            })
-          )
-        }
+        })
       }
 
-      // Normalizar restante a 0 si quedó negativo (borde)
-      await Promise.all([...productOps, ...tragoOps])
-      await tx.botellaActiva.updateMany({
-        where: { restante: { lt: 0 } },
-        data:  { restante: 0 },
-      })
+      // ── Ingredientes de tragos (atómico con guard) ───────────────────────
+      // Con botella activa  → solo descuenta restante (stock ya salió al abrir la botella)
+      // Sin botella activa  → descuenta stock + movimiento SALIDA
+      for (const c of consumos) {
+        if (c.botellaId) {
+          const upd = await tx.botellaActiva.updateMany({
+            where: { id: c.botellaId, restante: { gte: c.oz } },
+            data:  { restante: { decrement: c.oz } },
+          })
+          if (upd.count === 0) {
+            throw new StockError(`Botella insuficiente para "${c.nombre}" (otra venta consumió el contenido)`)
+          }
+        } else {
+          const upd = await tx.product.updateMany({
+            where: { id: c.productId, currentStock: { gte: c.oz } },
+            data:  { currentStock: { decrement: c.oz } },
+          })
+          if (upd.count === 0) {
+            throw new StockError(`Stock insuficiente para "${c.nombre}"`)
+          }
+          await tx.stockMovement.create({
+            data: {
+              productId: c.productId,
+              userId: req.user!.userId,
+              type: 'SALIDA',
+              quantity: c.oz,
+              notes: `Venta #${newSale.id} — ${c.nombre}`,
+            },
+          })
+        }
+      }
 
       return newSale
     },
     { timeout: 20000 }
   )
+  } catch (err) {
+    if (err instanceof StockError) {
+      res.status(409).json({ error: err.message })
+      return
+    }
+    throw err
+  }
 
   // Facturación electrónica ARCA + envío de email (no bloqueante en caso de error)
   await processFacturaYEmail({
@@ -747,7 +757,14 @@ export async function editarVenta(req: AuthRequest, res: Response): Promise<void
   const data: Record<string, unknown> = {}
   if (parsed.data.paymentMethod !== undefined) data.paymentMethod = parsed.data.paymentMethod
   if (parsed.data.notes !== undefined)         data.notes         = parsed.data.notes
-  if (parsed.data.clienteId !== undefined)     data.clienteId     = parsed.data.clienteId
+  if (parsed.data.clienteId !== undefined) {
+    // No permitir cambiar el cliente si ya hay factura emitida con CAE (datos legales inmutables)
+    if (sale.cae && parsed.data.clienteId !== sale.clienteId) {
+      res.status(400).json({ error: 'No se puede cambiar el cliente de una venta ya facturada en ARCA' })
+      return
+    }
+    data.clienteId = parsed.data.clienteId
+  }
 
   const updated = await prisma.sale.update({
     where: { id },
