@@ -25,10 +25,22 @@ export async function create(req: Request, res: Response): Promise<void> {
 
 export async function remove(req: Request, res: Response): Promise<void> {
   const id = parseInt(req.params.id)
+  if (isNaN(id)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  // Detectar productos asociados ANTES de borrar para devolver mensaje claro
+  const count = await prisma.product.count({ where: { categoryId: id } })
+  if (count > 0) {
+    res.status(409).json({
+      error: `No se puede borrar: la categoría tiene ${count} producto(s) asociado(s). Movélos o eliminálos primero.`,
+    })
+    return
+  }
+
   try {
     await prisma.category.delete({ where: { id } })
     res.status(204).send()
-  } catch {
-    res.status(404).json({ error: 'Categoría no encontrada o tiene productos asociados' })
+  } catch (e: any) {
+    if (e.code === 'P2025') { res.status(404).json({ error: 'Categoría no encontrada' }); return }
+    throw e
   }
 }

@@ -199,9 +199,10 @@ export default function Caja() {
   }
 
   async function handleMovimiento() {
-    if (!showMovForm) return
+    if (!showMovForm || saving) return
     const monto = parseFloat(movMonto)
     if (isNaN(monto) || monto <= 0) { showToast('Monto inválido', 'error'); return }
+    setSaving(true)
     try {
       await api.post('/caja/movimiento', { tipo: showMovForm, monto, motivo: movMotivo || undefined })
       showToast(showMovForm === 'RETIRO' ? 'Retiro registrado' : 'Aporte registrado')
@@ -209,6 +210,8 @@ export default function Caja() {
       load()
     } catch (err: any) {
       showToast(err?.response?.data?.error ?? 'Error al registrar', 'error')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -340,8 +343,8 @@ export default function Caja() {
                 className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand-500"
               />
               <div className="flex gap-2">
-                <Button onClick={handleMovimiento}>Confirmar</Button>
-                <Button variant="ghost" onClick={() => setShowMovForm(null)}>Cancelar</Button>
+                <Button onClick={handleMovimiento} loading={saving}>Confirmar</Button>
+                <Button variant="ghost" onClick={() => setShowMovForm(null)} disabled={saving}>Cancelar</Button>
               </div>
             </div>
           )}

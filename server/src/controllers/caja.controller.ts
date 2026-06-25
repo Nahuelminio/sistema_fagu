@@ -260,28 +260,37 @@ export async function getHistorialCajas(req: AuthRequest, res: Response): Promis
     },
   })
 
-  // Agregar ventas de cada caja
-  const cajasConVentas = await Promise.all(
-    cajas.map(async (caja) => {
-      const ventas = await prisma.sale.findMany({
-        where:  { cajaId: caja.id, anulada: false },
-        select: { total: true, paymentMethod: true },
+  // ── Agregar ventas en UNA query, agrupando por caja + método de pago ──
+  const cajaIds = cajas.map((c) => c.id)
+  const ventasAgg = cajaIds.length
+    ? await prisma.sale.groupBy({
+        by: ['cajaId', 'paymentMethod'],
+        where: { cajaId: { in: cajaIds }, anulada: false },
+        _sum: { total: true },
+        _count: { _all: true },
       })
-      const porMetodo: Record<string, number> = {}
-      let totalVentas = 0
-      for (const v of ventas) {
-        const t = Number(v.total)
-        porMetodo[v.paymentMethod] = (porMetodo[v.paymentMethod] ?? 0) + t
-        totalVentas += t
-      }
-      return {
-        ...caja,
-        cantVentas: ventas.length,
-        totalVentas: Math.round(totalVentas),
-        ventasPorMetodo: Object.entries(porMetodo).map(([method, total]) => ({ method, total: Math.round(total) })),
-      }
-    }),
-  )
+    : []
+
+  const ventasIdx = new Map<number, { porMetodo: Record<string, number>; total: number; count: number }>()
+  for (const row of ventasAgg) {
+    if (row.cajaId == null) continue
+    const cur = ventasIdx.get(row.cajaId) ?? { porMetodo: {}, total: 0, count: 0 }
+    const t = Number(row._sum.total ?? 0)
+    cur.porMetodo[row.paymentMethod] = (cur.porMetodo[row.paymentMethod] ?? 0) + t
+    cur.total += t
+    cur.count += row._count._all
+    ventasIdx.set(row.cajaId, cur)
+  }
+
+  const cajasConVentas = cajas.map((caja) => {
+    const v = ventasIdx.get(caja.id) ?? { porMetodo: {}, total: 0, count: 0 }
+    return {
+      ...caja,
+      cantVentas: v.count,
+      totalVentas: Math.round(v.total),
+      ventasPorMetodo: Object.entries(v.porMetodo).map(([method, total]) => ({ method, total: Math.round(total) })),
+    }
+  })
 
   // Stats agregadas
   const totalAcumulado = cajasConVentas.reduce((s, c) => s + c.totalVentas, 0)

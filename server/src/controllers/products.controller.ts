@@ -81,7 +81,8 @@ export async function update(req: AuthRequest, res: Response): Promise<void> {
       data: parsed.data,
       select: productSelect,
     })
-    if (product.visibleInCatalog) broadcastCatalogUpdate()
+    // Broadcast siempre — al ocultar también hay que refrescar la carta
+    broadcastCatalogUpdate()
     res.json(product)
   } catch {
     res.status(404).json({ error: 'Producto no encontrado' })

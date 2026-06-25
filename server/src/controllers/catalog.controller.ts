@@ -14,7 +14,13 @@ export async function getCatalog(_req: Request, res: Response): Promise<void> {
     prisma.product.findMany({
       where: {
         visibleInCatalog: true,
-        currentStock: { gt: 0 },
+        // Ocultar productos sin precio cargado (no tiene sentido mostrarlos en la carta)
+        salePrice: { not: null, gt: 0 },
+        // El stock controla la VENTA, no la visibilidad en la carta.
+        // Vinos/whiskys/licores se sirven desde botella abierta (BotellaActiva),
+        // no desde currentStock — por eso filtrar por stock acá oculta cosas
+        // que sí están disponibles. Si no hay stock real, el sistema rechaza
+        // la venta al cobrar. La carta es informativa.
       },
       select: {
         id: true,
@@ -32,6 +38,8 @@ export async function getCatalog(_req: Request, res: Response): Promise<void> {
       where: {
         active: true,
         visibleInCatalog: true,
+        // Idem para tragos: no aparecer en la carta sin precio
+        salePrice: { not: null, gt: 0 },
       },
       select: {
         id: true,

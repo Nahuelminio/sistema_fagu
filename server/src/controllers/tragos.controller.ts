@@ -107,7 +107,8 @@ export async function updateTrago(req: AuthRequest, res: Response): Promise<void
     })
   })
 
-  if (trago.visibleInCatalog) broadcastCatalogUpdate()
+  // Broadcast siempre — al ocultar también hay que actualizar la carta
+  broadcastCatalogUpdate()
   res.json(trago)
 }
 

@@ -53,7 +53,19 @@ export async function deleteCliente(req: AuthRequest, res: Response): Promise<vo
   const id = parseId(req.params.id)
   if (!id) { res.status(400).json({ error: 'ID inválido' }); return }
 
-  // Desasociar el cliente de las ventas antes de borrarlo (preserva el historial)
+  // Bloquear borrado si el cliente tiene facturas ARCA asociadas — esos datos
+  // legales (CUIT/DNI/nombre) deben quedar trazables para AFIP.
+  const facturasConCae = await prisma.sale.count({
+    where: { clienteId: id, cae: { not: null } },
+  })
+  if (facturasConCae > 0) {
+    res.status(400).json({
+      error: `No se puede borrar: el cliente tiene ${facturasConCae} factura(s) electrónica(s) asociada(s). Por requisitos de AFIP los datos del receptor deben conservarse.`,
+    })
+    return
+  }
+
+  // Sin facturas ARCA: desasociar de ventas (preserva el historial) y borrar
   try {
     await prisma.$transaction(async (tx) => {
       await tx.sale.updateMany({ where: { clienteId: id }, data: { clienteId: null } })

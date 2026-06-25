@@ -30,58 +30,65 @@ export async function abrirBotella(req: AuthRequest, res: Response): Promise<voi
 
   const { productId, capacidad, alertaOz = 3 } = parsed.data
 
-  // Verificar que haya stock de botellas cerradas
   const product = await prisma.product.findUnique({ where: { id: productId } })
   if (!product) { res.status(404).json({ error: 'Producto no encontrado' }); return }
-  if (Number(product.currentStock) < 1) {
-    res.status(400).json({ error: `No hay botellas cerradas de "${product.name}"` })
-    return
-  }
 
-  // Si ya hay una botella abierta con oz restantes → se descartan al abrir otra
+  // Snapshot del descarte previo (si había) — la fuente real se vuelve a leer en la transacción
   const previa = await prisma.botellaActiva.findUnique({ where: { productId } })
   const ozDescartados = previa ? Number(previa.restante) : 0
 
-  const botella = await prisma.$transaction(async (tx) => {
-    // Registrar oz perdidos (si los había) — para que quede en el historial
-    if (ozDescartados > 0) {
+  try {
+    const botella = await prisma.$transaction(async (tx) => {
+      // ── Decremento ATÓMICO de stock con guard (anti race) ───────────────
+      const upd = await tx.product.updateMany({
+        where: { id: productId, currentStock: { gte: 1 } },
+        data:  { currentStock: { decrement: 1 } },
+      })
+      if (upd.count === 0) {
+        throw Object.assign(new Error(), { code: 'NO_STOCK' })
+      }
+
+      // Registrar oz perdidos (si los había)
+      if (ozDescartados > 0) {
+        await tx.stockMovement.create({
+          data: {
+            productId,
+            userId: req.user!.userId,
+            type: 'AJUSTE',
+            quantity: ozDescartados,
+            notes: `Descarte: botella anterior cerrada con ${ozDescartados.toFixed(2)} oz sin usar`,
+          },
+        })
+      }
+
+      const b = await tx.botellaActiva.upsert({
+        where:  { productId },
+        update: { capacidad, restante: capacidad, alertaOz, abiertaEn: new Date() },
+        create: { productId, capacidad, restante: capacidad, alertaOz },
+        include: botellaInclude,
+      })
+
       await tx.stockMovement.create({
         data: {
           productId,
           userId: req.user!.userId,
-          type: 'AJUSTE',
-          quantity: ozDescartados,
-          notes: `Descarte: botella anterior cerrada con ${ozDescartados.toFixed(2)} oz sin usar`,
+          type: 'SALIDA',
+          quantity: 1,
+          notes: `Apertura de botella (${capacidad} oz)`,
         },
       })
+
+      return b
+    }, { timeout: 15000 })
+
+    res.status(201).json({ ...botella, ozDescartados })
+  } catch (err: any) {
+    if (err.code === 'NO_STOCK') {
+      res.status(400).json({ error: `No hay botellas cerradas de "${product.name}"` })
+      return
     }
-
-    const b = await tx.botellaActiva.upsert({
-      where:  { productId },
-      update: { capacidad, restante: capacidad, alertaOz, abiertaEn: new Date() },
-      create: { productId, capacidad, restante: capacidad, alertaOz },
-      include: botellaInclude,
-    })
-
-    // Abrir botella = -1 botella cerrada del stock + crear movimiento
-    await tx.stockMovement.create({
-      data: {
-        productId,
-        userId: req.user!.userId,
-        type: 'SALIDA',
-        quantity: 1,
-        notes: `Apertura de botella (${capacidad} oz)`,
-      },
-    })
-    await tx.product.update({
-      where: { id: productId },
-      data: { currentStock: { decrement: 1 } },
-    })
-
-    return b
-  }, { timeout: 15000 })
-
-  res.status(201).json({ ...botella, ozDescartados })
+    throw err
+  }
 }
 
 export async function cerrarBotella(req: AuthRequest, res: Response): Promise<void> {
