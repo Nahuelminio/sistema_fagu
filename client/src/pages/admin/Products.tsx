@@ -27,6 +27,7 @@ export default function Products() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  const [filterCatId, setFilterCatId] = useState<string>('')
   const [sortBy, setSortBy] = useState<'name' | 'stock-desc' | 'stock-asc'>('name')
 
   useEffect(() => {
@@ -147,6 +148,7 @@ export default function Products() {
   ).filter((g) => g.length > 1)
 
   const filtered = products
+    .filter((p) => !filterCatId || String(p.category.id) === filterCatId)
     .filter((p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.category.name.toLowerCase().includes(search.toLowerCase())
@@ -167,10 +169,20 @@ export default function Products() {
         <Button onClick={openCreate}>+ Nuevo</Button>
       </div>
 
-      <div className="flex gap-2">
-        <div className="flex-1">
+      <div className="flex flex-wrap gap-2">
+        <div className="flex-1 min-w-[180px]">
           <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
+        <select
+          value={filterCatId}
+          onChange={(e) => setFilterCatId(e.target.value)}
+          className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
+        >
+          <option value="">Todas las categorías</option>
+          {[...categories].sort((a, b) => a.name.localeCompare(b.name)).map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
@@ -181,6 +193,19 @@ export default function Products() {
           <option value="stock-asc">Menor stock</option>
         </select>
       </div>
+      {(search || filterCatId) && (
+        <p className="text-xs text-zinc-500 -mt-2">
+          Mostrando {filtered.length} de {products.length} productos
+          {filterCatId && (
+            <button
+              onClick={() => setFilterCatId('')}
+              className="ml-2 text-brand-400 hover:underline"
+            >
+              · limpiar filtro
+            </button>
+          )}
+        </p>
+      )}
 
       {/* Duplicados detectados */}
       {duplicateGroups.length > 0 && (
@@ -254,9 +279,12 @@ export default function Products() {
               <div className="flex flex-wrap gap-2 mb-2">
                 {[
                   { label: 'No es botella', val: '' },
-                  { label: '750 ml', val: '25.36' },
-                  { label: '1 L', val: '33.81' },
                   { label: '500 ml', val: '16.91' },
+                  { label: '700 ml', val: '23.67' },
+                  { label: '750 ml', val: '25.36' },
+                  { label: '1 L',    val: '33.81' },
+                  { label: '1.5 L',  val: '50.72' },
+                  { label: '2 L',    val: '67.63' },
                 ].map((opt) => (
                   <button
                     key={opt.label}

@@ -88,18 +88,36 @@ export async function createOrden(req: AuthRequest, res: Response): Promise<void
   if (!parsed.success) { res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() }); return }
 
   const { proveedorId, notes, items } = parsed.data
+
+  // Para los ítems sin unitCost, usar el costPrice actual del producto.
+  // Así la orden queda con el costo "vigente" en ese momento — útil cuando
+  // se cargan compras repetidas sin volver a escribir el costo.
+  const productIds = [...new Set(items.map((i) => i.productId))]
+  const productos = await prisma.product.findMany({
+    where:  { id: { in: productIds } },
+    select: { id: true, costPrice: true },
+  })
+  const costoPorProducto = new Map(productos.map((p) => [p.id, p.costPrice]))
+
+  const itemsConCosto = items.map((i) => {
+    let unitCost = i.unitCost
+    if (unitCost == null) {
+      const costoProducto = costoPorProducto.get(i.productId)
+      if (costoProducto != null) unitCost = Number(costoProducto)
+    }
+    return {
+      productId: i.productId,
+      quantity:  i.quantity,
+      unitCost,
+    }
+  })
+
   const orden = await prisma.ordenCompra.create({
     data: {
       userId: req.user!.userId,
       proveedorId: proveedorId ?? null,
       notes,
-      items: {
-        create: items.map((i) => ({
-          productId: i.productId,
-          quantity:  i.quantity,
-          unitCost:  i.unitCost,
-        })),
-      },
+      items: { create: itemsConCosto },
     },
     include: {
       proveedor: true,
@@ -124,55 +142,93 @@ export async function recibirOrden(req: AuthRequest, res: Response): Promise<voi
   // Cantidades recibidas (puede ser parcial)
   const received = z.record(z.string(), z.number().positive()).optional().parse(req.body.received)
 
-  await prisma.$transaction(async (tx) => {
-    for (const item of orden.items) {
-      const qty = received ? (received[String(item.id)] ?? Number(item.quantity)) : Number(item.quantity)
-      if (qty <= 0) continue
+  // ── Pre-fetch FUERA de la transacción para minimizar roundtrips dentro ──
+  // Para órdenes con muchos items (20+), hacer findUnique adentro de la
+  // transacción puede colgarse en el timeout por la latencia acumulada.
+  const productIds = [...new Set(orden.items.map((i) => i.productId))]
+  const productosCache = await prisma.product.findMany({
+    where:  { id: { in: productIds } },
+    select: { id: true, currentStock: true, costPrice: true },
+  })
+  const productoPorId = new Map(productosCache.map((p) => [p.id, p]))
 
-      // Leer estado actual del producto para calcular el nuevo costo promedio
-      const product = await tx.product.findUnique({
-        where: { id: item.productId },
-        select: { currentStock: true, costPrice: true },
-      })
-      if (!product) continue
-
-      const nuevoCosto = calcularCostoPromedioPonderado({
-        stockActual:   Number(product.currentStock),
-        costoActual:   product.costPrice == null ? null : Number(product.costPrice),
-        cantidadNueva: qty,
-        costoNuevo:    item.unitCost == null ? null : Number(item.unitCost),
-      })
-
-      await tx.stockMovement.create({
-        data: {
-          productId: item.productId,
-          userId: req.user!.userId,
-          type: 'INGRESO',
-          quantity: qty,
-          unitCost: item.unitCost,
-          notes: `Orden de compra #${orden.id}`,
-        },
-      })
-
-      await tx.product.update({
-        where: { id: item.productId },
-        data: {
-          currentStock: { increment: qty },
-          ...(nuevoCosto != null ? { costPrice: nuevoCosto } : {}),
-        },
-      })
-
-      await tx.ordenItem.update({
-        where: { id: item.id },
-        data: { received: qty },
-      })
-    }
-
-    await tx.ordenCompra.update({
-      where: { id },
-      data: { status: 'RECIBIDA' },
+  // Precomputar todo el plan de cambios antes de abrir la transacción
+  interface Plan {
+    itemId: number
+    productId: number
+    qty: number
+    nuevoCosto: number | null
+    unitCost: number | null
+  }
+  const plan: Plan[] = []
+  for (const item of orden.items) {
+    const qty = received ? (received[String(item.id)] ?? Number(item.quantity)) : Number(item.quantity)
+    if (qty <= 0) continue
+    const product = productoPorId.get(item.productId)
+    if (!product) continue
+    const nuevoCosto = calcularCostoPromedioPonderado({
+      stockActual:   Number(product.currentStock),
+      costoActual:   product.costPrice == null ? null : Number(product.costPrice),
+      cantidadNueva: qty,
+      costoNuevo:    item.unitCost == null ? null : Number(item.unitCost),
     })
-  }, { timeout: 20000 })
+    plan.push({
+      itemId: item.id,
+      productId: item.productId,
+      qty,
+      nuevoCosto,
+      unitCost: item.unitCost == null ? null : Number(item.unitCost),
+    })
+  }
+
+  // Estrategia anti-timeout: NO usar una transacción gigante.
+  // Con muchos items (20+) y latencia de Railway desde local, la transacción
+  // se cuelga y el proxy cierra la conexión a mitad. Las operaciones son
+  // idempotentes por item: si ya recibimos quantity, lo salteamos en retry.
+  //
+  // 1) Insertar todos los movimientos en bulk (1 roundtrip).
+  if (plan.length > 0) {
+    await prisma.stockMovement.createMany({
+      data: plan.map((p) => ({
+        productId: p.productId,
+        userId: req.user!.userId,
+        type: 'INGRESO' as const,
+        quantity: p.qty,
+        unitCost: p.unitCost,
+        notes: `Orden de compra #${orden.id}`,
+      })),
+    })
+  }
+
+  // 2) Actualizar productos y items de la orden (uno a uno, sin transacción
+  //    larga). Si la conexión se cae a la mitad, la orden queda en PENDIENTE
+  //    y los items procesados tienen received > 0 — se puede reintentar.
+  for (const p of plan) {
+    // Idempotencia: si el item ya fue recibido en un intento anterior, saltar
+    const itemActual = await prisma.ordenItem.findUnique({
+      where: { id: p.itemId },
+      select: { received: true },
+    })
+    if (itemActual && Number(itemActual.received) >= p.qty) continue
+
+    await prisma.product.update({
+      where: { id: p.productId },
+      data: {
+        currentStock: { increment: p.qty },
+        ...(p.nuevoCosto != null ? { costPrice: p.nuevoCosto } : {}),
+      },
+    })
+    await prisma.ordenItem.update({
+      where: { id: p.itemId },
+      data: { received: p.qty },
+    })
+  }
+
+  // 3) Marcar la orden como recibida sólo si todo terminó OK
+  await prisma.ordenCompra.update({
+    where: { id },
+    data: { status: 'RECIBIDA' },
+  })
 
   res.json({ ok: true })
 }

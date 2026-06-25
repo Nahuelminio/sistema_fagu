@@ -62,6 +62,8 @@ export default function Ordenes() {
   ])
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
+  // Set de ordenIds que están siendo recibidas — bloquea doble click + muestra loader
+  const [recibiendo, setRecibiendo] = useState<Set<number>>(new Set())
 
   // Nuevo proveedor
   const [showNewProv, setShowNewProv]   = useState(false)
@@ -116,12 +118,20 @@ export default function Ordenes() {
   }
 
   async function handleRecibir(id: number) {
+    if (recibiendo.has(id)) return // ya está procesándose, ignorar
+    setRecibiendo((prev) => new Set(prev).add(id))
     try {
       await api.post(`/ordenes/${id}/recibir`, {})
       showToast(`Orden #${id} marcada como recibida`)
-      load()
+      await load()
     } catch (err: any) {
       showToast(err?.response?.data?.error ?? 'Error al recibir la orden', 'error')
+    } finally {
+      setRecibiendo((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     }
   }
 
@@ -208,8 +218,20 @@ export default function Ordenes() {
             </div>
             {orden.status === 'PENDIENTE' && (
               <div className="mt-3 flex gap-2">
-                <button onClick={() => handleRecibir(orden.id)} className="flex-1 rounded-lg bg-green-800/50 px-3 py-1.5 text-xs font-semibold text-green-300 hover:bg-green-700/50 transition">Recibir</button>
-                <button onClick={() => handleCancelar(orden.id)} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-500 hover:text-red-400 transition">Cancelar</button>
+                <button
+                  onClick={() => handleRecibir(orden.id)}
+                  disabled={recibiendo.has(orden.id)}
+                  className="flex-1 rounded-lg bg-green-800/50 px-3 py-1.5 text-xs font-semibold text-green-300 hover:bg-green-700/50 transition disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+                >
+                  {recibiendo.has(orden.id) ? '⏳ Procesando…' : 'Recibir'}
+                </button>
+                <button
+                  onClick={() => handleCancelar(orden.id)}
+                  disabled={recibiendo.has(orden.id)}
+                  className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-500 hover:text-red-400 transition disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
               </div>
             )}
           </div>
@@ -244,8 +266,20 @@ export default function Ordenes() {
           </div>
           {detailOrden.status === 'PENDIENTE' && (
             <div className="mt-3 flex gap-2">
-              <button onClick={() => { handleRecibir(detailOrden.id); setView('list') }} className="flex-1 rounded-lg bg-green-800/50 px-3 py-1.5 text-sm font-semibold text-green-300 hover:bg-green-700/50 transition">Marcar como recibida</button>
-              <button onClick={() => { handleCancelar(detailOrden.id); setView('list') }} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-500 hover:text-red-400 transition">Cancelar</button>
+              <button
+                onClick={() => { handleRecibir(detailOrden.id); setView('list') }}
+                disabled={recibiendo.has(detailOrden.id)}
+                className="flex-1 rounded-lg bg-green-800/50 px-3 py-1.5 text-sm font-semibold text-green-300 hover:bg-green-700/50 transition disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+              >
+                {recibiendo.has(detailOrden.id) ? '⏳ Procesando…' : 'Marcar como recibida'}
+              </button>
+              <button
+                onClick={() => { handleCancelar(detailOrden.id); setView('list') }}
+                disabled={recibiendo.has(detailOrden.id)}
+                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-500 hover:text-red-400 transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancelar
+              </button>
             </div>
           )}
         </div>
