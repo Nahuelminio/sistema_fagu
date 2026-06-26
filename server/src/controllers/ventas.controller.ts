@@ -5,6 +5,7 @@ import { AuthRequest } from '../types'
 import { broadcastCatalogUpdate } from '../services/sse.service'
 import { processFacturaYEmail } from '../utils/processFactura'
 import { emitirNotaCredito, getCbteTipo } from '../services/arca.service'
+import { costoTotalTrago } from '../utils/tragoCost'
 
 const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MERCADOPAGO', 'CUENTA_CORRIENTE'] as const
 
@@ -367,6 +368,9 @@ export async function getRanking(req: AuthRequest, res: Response): Promise<void>
                   select: {
                     id: true, costPrice: true, bottleSize: true,
                     botellaActiva: { select: { capacidad: true } },
+                    grupo: {
+                      select: { products: { select: { costPrice: true, bottleSize: true } } },
+                    },
                   },
                 },
               },
@@ -386,15 +390,7 @@ export async function getRanking(req: AuthRequest, res: Response): Promise<void>
     let cost = 0
     if (entry.tragoId) {
       const t = tragoMap.get(entry.tragoId)
-      if (t) {
-        cost = t.ingredientes.reduce((sum, ing) => {
-          const precio    = Number(ing.product.costPrice ?? 0)
-          // Fallback: si no hay botella abierta, usa bottleSize del producto
-          const capacidad = Number(ing.product.botellaActiva?.capacidad ?? ing.product.bottleSize ?? 0)
-          const ozCost    = capacidad > 0 ? precio / capacidad : 0
-          return sum + Number(ing.cantidad) * ozCost
-        }, 0)
-      }
+      if (t) cost = costoTotalTrago(t.ingredientes)
     } else if (entry.productId) {
       const p = productMap.get(entry.productId)
       cost = Number(p?.costPrice ?? 0)

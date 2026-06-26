@@ -26,6 +26,14 @@ const tragoInclude = {
         select: {
           id: true, name: true, unit: true, currentStock: true, costPrice: true, bottleSize: true,
           botellaActiva: { select: { capacidad: true } },
+          // Incluir el grupo y sus productos para que el frontend pueda calcular
+          // el costo promedio cuando el ingrediente pertenece a un grupo
+          grupo: {
+            select: {
+              id: true, name: true,
+              products: { select: { id: true, name: true, costPrice: true, bottleSize: true } },
+            },
+          },
         },
       },
     },

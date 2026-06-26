@@ -26,6 +26,7 @@ export default function Products() {
   const [editing, setEditing] = useState<Product | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [search, setSearch] = useState('')
   const [filterCatId, setFilterCatId] = useState<string>('')
   const [sortBy, setSortBy] = useState<'name' | 'stock-desc' | 'stock-asc'>('name')
@@ -48,12 +49,14 @@ export default function Products() {
   function openCreate() {
     setEditing(null)
     setForm(emptyForm)
+    setFormErrors({})
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function openEdit(p: Product) {
     setEditing(p)
+    setFormErrors({})
     setForm({
       name: p.name,
       categoryId: String(p.category.id),
@@ -80,14 +83,45 @@ export default function Products() {
     }
   }
 
+  function validateForm(): boolean {
+    const errs: Record<string, string> = {}
+    if (!form.name.trim())          errs.name       = 'El nombre es obligatorio'
+    if (!form.categoryId)           errs.categoryId = 'Elegí una categoría'
+    if (!form.unit.trim())          errs.unit       = 'Elegí una unidad'
+
+    // Precios coherentes
+    const costo = form.costPrice ? parseFloat(form.costPrice) : null
+    const venta = form.salePrice ? parseFloat(form.salePrice) : null
+    if (costo != null && costo < 0)        errs.costPrice = 'El costo no puede ser negativo'
+    if (venta != null && venta < 0)        errs.salePrice = 'El precio de venta no puede ser negativo'
+    if (costo != null && venta != null && venta < costo) {
+      errs.salePrice = `⚠️ El precio de venta ($${venta}) es MENOR al costo ($${costo}) — vas a perder plata. Confirmá guardando de nuevo.`
+    }
+
+    if (form.bottleSize && parseFloat(form.bottleSize) <= 0) {
+      errs.bottleSize = 'El tamaño debe ser mayor a 0'
+    }
+
+    setFormErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   async function handleSave() {
+    // Si hay error de margen (venta < costo) y el usuario hace click otra vez, lo dejamos pasar
+    const ignoreMargenWarn = formErrors.salePrice?.startsWith('⚠️')
+    if (!validateForm() && !ignoreMargenWarn) {
+      showToast('Hay errores en el formulario', 'error')
+      return
+    }
+    if (ignoreMargenWarn) setFormErrors({}) // limpiar para no quedar pegado
+
     setSaving(true)
     const body = {
-      name: form.name,
+      name: form.name.trim(),
       categoryId: parseInt(form.categoryId),
       grupoId:    form.grupoId ? parseInt(form.grupoId) : null,
-      unit: form.unit,
-      minStock: parseFloat(form.minStock),
+      unit: form.unit.trim(),
+      minStock: parseFloat(form.minStock) || 0,
       costPrice: form.costPrice ? parseFloat(form.costPrice) : undefined,
       salePrice: form.salePrice ? parseFloat(form.salePrice) : undefined,
       bottleSize: form.bottleSize ? parseFloat(form.bottleSize) : null,
@@ -103,7 +137,11 @@ export default function Products() {
         showToast(`Producto "${form.name}" creado`)
       }
       setShowForm(false)
+      setFormErrors({})
       load()
+    } catch (err: any) {
+      const msg = err?.response?.data?.error ?? 'Error al guardar el producto'
+      showToast(msg, 'error')
     } finally {
       setSaving(false)
     }
@@ -247,13 +285,17 @@ export default function Products() {
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
           <h2 className="mb-4 font-semibold text-zinc-100">{editing ? 'Editar producto' : 'Nuevo producto'}</h2>
           <div className="flex flex-col gap-3">
-            <Input label="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <div>
+              <Input label="Nombre *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              {formErrors.name && <p className="mt-1 text-xs text-red-400">{formErrors.name}</p>}
+            </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium uppercase tracking-wide text-zinc-400">Categoría</label>
+              <label className="text-xs font-medium uppercase tracking-wide text-zinc-400">Categoría *</label>
               <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} className={selectClass}>
                 <option value="">Seleccionar...</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {formErrors.categoryId && <p className="text-xs text-red-400">{formErrors.categoryId}</p>}
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium uppercase tracking-wide text-zinc-400">Grupo de variantes (opcional)</label>
@@ -266,11 +308,24 @@ export default function Products() {
                 para que los tragos puedan usar cualquier variante.
               </p>
             </div>
-            <Input label="Unidad" placeholder="unidades, litros, kg..." value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+            <div>
+              <Input label="Unidad *" placeholder="unidad, litros, kg..." value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+              {formErrors.unit && <p className="mt-1 text-xs text-red-400">{formErrors.unit}</p>}
+            </div>
             <Input label="Stock mínimo" type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <Input label="Precio costo" type="number" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} />
-              <Input label="Precio venta" type="number" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: e.target.value })} />
+              <div>
+                <Input label="Precio costo" type="number" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} />
+                {formErrors.costPrice && <p className="mt-1 text-xs text-red-400">{formErrors.costPrice}</p>}
+              </div>
+              <div>
+                <Input label="Precio venta" type="number" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: e.target.value })} />
+                {formErrors.salePrice && (
+                  <p className={`mt-1 text-xs ${formErrors.salePrice.startsWith('⚠️') ? 'text-yellow-400' : 'text-red-400'}`}>
+                    {formErrors.salePrice}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Tamaño de botella — solo si es producto en botella */}

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import prisma from '../lib/prisma'
 import { AuthRequest } from '../types'
 import { parseId } from '../utils/asyncHandler'
+import { costoTotalTrago } from '../utils/tragoCost'
 
 const gastoSchema = z.object({
   nombre: z.string().min(1),
@@ -65,6 +66,9 @@ export async function getResumenMensual(req: AuthRequest, res: Response): Promis
                   select: {
                     id: true, costPrice: true, bottleSize: true,
                     botellaActiva: { select: { capacidad: true } },
+                    grupo: {
+                      select: { products: { select: { costPrice: true, bottleSize: true } } },
+                    },
                   },
                 },
               },
@@ -86,16 +90,7 @@ export async function getResumenMensual(req: AuthRequest, res: Response): Promis
       costoMercaderia += Number(p?.costPrice ?? 0) * qty
     } else if (item.tragoId) {
       const t = tragoMap.get(item.tragoId)
-      if (t) {
-        const costoPorUnidad = t.ingredientes.reduce((sum, ing) => {
-          const precio    = Number(ing.product.costPrice ?? 0)
-          // Fallback: si no hay botella abierta, usa bottleSize del producto
-          const capacidad = Number(ing.product.botellaActiva?.capacidad ?? ing.product.bottleSize ?? 0)
-          const ozCost    = capacidad > 0 ? precio / capacidad : 0
-          return sum + Number(ing.cantidad) * ozCost
-        }, 0)
-        costoMercaderia += costoPorUnidad * qty
-      }
+      if (t) costoMercaderia += costoTotalTrago(t.ingredientes) * qty
     }
   }
 

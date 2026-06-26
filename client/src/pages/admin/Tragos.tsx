@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import api from '../../lib/api'
-import { Trago, Product } from '../../types'
+import { Trago, Product, ProductGroup } from '../../types'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Badge from '../../components/ui/Badge'
 import SearchableSelect, { SearchOption } from '../../components/ui/SearchableSelect'
 import { useToast } from '../../context/ToastContext'
 import { useConfirm } from '../../context/ConfirmContext'
+import { costoIngrediente, costoTotalTrago, costoEsCompleto } from '../../utils/tragoCost'
 
 
 function formatARS(n: number) {
@@ -20,6 +21,7 @@ export default function Tragos() {
   const confirm = useConfirm()
   const [tragos, setTragos]       = useState<Trago[]>([])
   const [products, setProducts]   = useState<Product[]>([])
+  const [grupos, setGrupos]       = useState<ProductGroup[]>([])
   const [showForm, setShowForm]   = useState(false)
   const [editing, setEditing]     = useState<Trago | null>(null)
   const [name, setName]           = useState('')
@@ -30,7 +32,45 @@ export default function Tragos() {
   const [ings, setIngs]           = useState<IngForm[]>([{ productId: '', cantidad: '' }])
   const [saving, setSaving]       = useState(false)
 
-  useEffect(() => { load(); loadProducts() }, [])
+  useEffect(() => {
+    load()
+    loadProducts()
+    api.get<ProductGroup[]>('/grupos').then((r) => setGrupos(r.data)).catch(() => {})
+  }, [])
+
+  // Opciones del SearchableSelect: primero los GRUPOS (cualquier variante),
+  // después los productos sin grupo. Productos que pertenecen a un grupo se
+  // ocultan porque ya quedan cubiertos por la opción del grupo.
+  // El value guardado siempre es un productId — para grupos usamos el primer
+  // producto del grupo como representativo (la lógica de consumo del trago
+  // ya resuelve cualquier variante del grupo gracias a Product.grupoId).
+  const ingredientOptions = useMemo((): SearchOption[] => {
+    const opts: SearchOption[] = []
+
+    // 1) Grupos primero (con marker visual)
+    for (const g of grupos) {
+      const primeraVariante = g.products?.[0]
+      if (!primeraVariante) continue
+      const cantidad = g.products?.length ?? 0
+      opts.push({
+        value: String(primeraVariante.id),
+        label: `🔗 ${g.name}`,
+        meta:  cantidad > 1 ? `cualquier variante (${cantidad})` : 'grupo',
+      })
+    }
+
+    // 2) Productos sin grupo
+    for (const p of products) {
+      if (!p.grupo) {
+        opts.push({
+          value: String(p.id),
+          label: p.name,
+          meta:  p.unit,
+        })
+      }
+    }
+    return opts
+  }, [grupos, products])
 
   async function load() {
     try {
@@ -68,7 +108,15 @@ export default function Tragos() {
     setImageUrl(t.imageUrl ?? '')
     setDescription(t.description ?? '')
     setVisibleInCatalog(t.visibleInCatalog ?? false)
-    setIngs(t.ingredientes.map((i) => ({ productId: String(i.productId), cantidad: String(i.cantidad) })))
+    // Normalizar el productId: si el producto está en un grupo, mapearlo al
+    // representativo del grupo (primer producto). Así el dropdown muestra
+    // "🔗 NombreGrupo" como seleccionado en vez de quedar en blanco.
+    setIngs(t.ingredientes.map((i) => {
+      const prod = products.find((p) => p.id === i.productId)
+      const grupo = prod?.grupo ? grupos.find((g) => g.id === prod.grupo!.id) : null
+      const representativeId = grupo?.products?.[0]?.id ?? i.productId
+      return { productId: String(representativeId), cantidad: String(i.cantidad) }
+    }))
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -180,12 +228,8 @@ export default function Tragos() {
                       <SearchableSelect
                         value={ing.productId}
                         onChange={(v) => updateIng(i, 'productId', v)}
-                        placeholder="Buscar ingrediente..."
-                        options={products.map<SearchOption>((p) => ({
-                          value: String(p.id),
-                          label: p.name,
-                          meta:  p.unit,
-                        }))}
+                        placeholder="Buscar ingrediente o grupo..."
+                        options={ingredientOptions}
                       />
                     </div>
                     <input
@@ -215,17 +259,11 @@ export default function Tragos() {
 
       <div className="flex flex-col gap-2">
         {tragos.map((t) => {
-          // Calcular costo total del trago
-          // costo por oz = costPrice (precio botella) / capacidad (oz de la botella)
-          let costoTotal = 0
-          let costoCompleto = true
-          for (const ing of t.ingredientes) {
-            const precio = Number(ing.product.costPrice ?? 0)
-            // Fallback: si no hay botella abierta, usa bottleSize del producto
-            const cap    = Number(ing.product.botellaActiva?.capacidad ?? ing.product.bottleSize ?? 0)
-            if (!ing.product.costPrice || !cap) { costoCompleto = false; break }
-            costoTotal += Number(ing.cantidad) * (precio / cap)
-          }
+          // Costo del trago. Si un ingrediente está en un grupo, el costo
+          // por oz se calcula como el PROMEDIO de las variantes del grupo
+          // (no como costo fijo del producto representante).
+          const costoTotal = costoTotalTrago(t.ingredientes)
+          const costoCompleto = costoEsCompleto(t.ingredientes)
           const margen = t.salePrice && costoCompleto
             ? Number(t.salePrice) - costoTotal
             : null
@@ -263,25 +301,23 @@ export default function Tragos() {
                   {/* Ingredientes */}
                   <div className="mt-2 flex flex-col gap-1">
                     {t.ingredientes.map((ing) => {
-                      const precio = Number(ing.product.costPrice ?? 0)
-                      const cap    = Number(ing.product.botellaActiva?.capacidad ?? ing.product.bottleSize ?? 0)
-                      const costoParcial = precio && cap
-                        ? Number(ing.cantidad) * (precio / cap)
-                        : null
-                      const faltaBottle = !cap
-                      const faltaPrecio = !ing.product.costPrice
+                      const costoParcial = costoIngrediente(ing)
+                      const grupo = ing.product.grupo
+                      // Si está en un grupo con varias variantes, mostrar el nombre del grupo
+                      // en vez del producto individual (más representativo).
+                      const nombreMostrar = grupo && grupo.products.length > 1
+                        ? `🔗 ${grupo.name}`
+                        : ing.product.name
 
                       return (
                         <div key={ing.id} className="flex items-center justify-between rounded-lg bg-zinc-800/60 px-2 py-1 gap-2">
                           <span className="text-xs text-zinc-400 flex-1">
-                            {ing.product.name} · {ing.cantidad} {ing.product.unit}
+                            {nombreMostrar} · {ing.cantidad} {ing.product.unit}
                           </span>
                           {costoParcial != null ? (
                             <span className="text-xs text-zinc-500">{formatARS(costoParcial)}</span>
                           ) : (
-                            <span className="text-xs text-zinc-700 italic">
-                              {faltaBottle ? 'sin botella abierta' : faltaPrecio ? 'sin precio' : '—'}
-                            </span>
+                            <span className="text-xs text-zinc-700 italic">sin costo</span>
                           )}
                         </div>
                       )

@@ -25,6 +25,25 @@ export default function Catalog() {
   const [search, setSearch]       = useState('')
   const [activeCat, setActiveCat] = useState<string>('TODO')
 
+  // Click en un tab de categoría: scroll suave a esa sección.
+  // Mantenemos "TODO" como activo así no se filtran las demás
+  // (el cliente puede seguir explorando el resto bajando).
+  function handleTabClick(cat: string) {
+    setActiveCat('TODO')
+    requestAnimationFrame(() => {
+      if (cat === 'TODO') {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+      const el = document.getElementById(`cat-${cat}`)
+      if (el) {
+        // Offset por el sticky header (~110px) para que el título de la categoría no quede tapado
+        const top = el.getBoundingClientRect().top + window.scrollY - 110
+        window.scrollTo({ top, behavior: 'smooth' })
+      }
+    })
+  }
+
   const categories = useMemo(() => data ? Object.entries(data.categories) : [], [data])
 
   // Si la categoría activa desaparece (porque se desactivaron sus items), resetear a TODO
@@ -102,29 +121,17 @@ export default function Catalog() {
             className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 outline-none focus:border-brand-500 placeholder:text-zinc-600"
           />
 
-          {/* Tabs/chips de categorías */}
+          {/* Tabs/chips de categorías
+              - Mobile: scroll horizontal con swipe (overflow-x-auto)
+              - Desktop (sm:+): se acomodan en varias filas (flex-wrap)         */}
           {categories.length > 1 && (
-            <div className="mt-3 -mx-4 overflow-x-auto scrollbar-none">
-              <div className="flex gap-2 px-4 min-w-max">
-                <button
-                  onClick={() => setActiveCat('TODO')}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
-                    activeCat === 'TODO'
-                      ? 'bg-brand-500 text-white'
-                      : 'border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  Todo
-                </button>
+            <div className="mt-3 -mx-4 overflow-x-auto scrollbar-none sm:mx-0 sm:overflow-visible">
+              <div className="flex gap-2 px-4 min-w-max sm:flex-wrap sm:min-w-0 sm:px-0">
                 {categories.map(([cat]) => (
                   <button
                     key={cat}
-                    onClick={() => setActiveCat(cat)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
-                      activeCat === cat
-                        ? 'bg-brand-500 text-white'
-                        : 'border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-                    }`}
+                    onClick={() => handleTabClick(cat)}
+                    className="rounded-full border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:border-brand-500/50 px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition"
                   >
                     {cat}
                   </button>
@@ -187,7 +194,9 @@ function ItemCard({ item }: { item: CatalogItem }) {
           {item.description && (
             <p className="mt-0.5 text-xs text-zinc-500 line-clamp-2">{item.description}</p>
           )}
-          {!item.description && item.unit && (
+          {/* Mostrar la unidad SOLO si es algo distinto a "unidad" (ej: porción, kg, etc.).
+              Para los productos comunes el "unidad" es info redundante. */}
+          {!item.description && item.unit && item.unit.toLowerCase() !== 'unidad' && (
             <p className="text-xs text-zinc-600">{item.unit}</p>
           )}
         </div>
