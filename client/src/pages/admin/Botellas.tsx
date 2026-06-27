@@ -7,11 +7,23 @@ import { useConfirm } from '../../context/ConfirmContext'
 
 // Capacidades estándar en oz
 const PRESETS = [
-  { label: '750 ml (25.4 oz)', value: 25.36 },
-  { label: '1 L (33.8 oz)', value: 33.81 },
-  { label: '500 ml (16.9 oz)', value: 16.91 },
+  { label: '500 ml', value: 16.91 },
+  { label: '700 ml', value: 23.67 },
+  { label: '750 ml', value: 25.36 },
+  { label: '1 L',    value: 33.81 },
+  { label: '1.5 L',  value: 50.72 },
+  { label: '2 L',    value: 67.63 },
   { label: 'Personalizado', value: 0 },
 ]
+
+// 1 oz = 29.5735 ml. Para convertir cualquier ml → oz: ml / 29.5735
+const ML_POR_OZ = 29.5735
+
+function convertirAOz(valor: number, unidad: 'ml' | 'L' | 'oz'): number {
+  if (unidad === 'oz') return valor
+  if (unidad === 'L')  return (valor * 1000) / ML_POR_OZ
+  return valor / ML_POR_OZ // ml
+}
 
 function BottleSvg({ restante, capacidad, alertaOz, uid }: {
   restante: number; capacidad: number; alertaOz: number; uid: string
@@ -105,6 +117,7 @@ export default function Botellas() {
   const [productId, setProductId] = useState('')
   const [presetIdx, setPresetIdx] = useState(0)
   const [customCap, setCustomCap] = useState('')
+  const [customUnit, setCustomUnit] = useState<'ml' | 'L' | 'oz'>('L')
   const [alertaOz, setAlertaOz] = useState('3')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -129,7 +142,7 @@ export default function Botellas() {
 
   const capacidad = presetIdx < PRESETS.length - 1
     ? PRESETS[presetIdx].value
-    : parseFloat(customCap) || 0
+    : convertirAOz(parseFloat(customCap) || 0, customUnit)
 
   async function handleAbrir(e: React.FormEvent) {
     e.preventDefault()
@@ -231,7 +244,16 @@ export default function Botellas() {
               if (p?.bottleSize) {
                 const bs = Number(p.bottleSize)
                 const idx = PRESETS.findIndex((preset) => Math.abs(preset.value - bs) < 0.5)
-                if (idx >= 0) setPresetIdx(idx)
+                if (idx >= 0) {
+                  setPresetIdx(idx)
+                } else {
+                  // No coincide con ningún preset → seleccionar "Personalizado"
+                  // y pre-cargar el valor en litros para mostrar al usuario
+                  setPresetIdx(PRESETS.length - 1)
+                  const litros = (bs * ML_POR_OZ) / 1000
+                  setCustomCap(litros.toFixed(2))
+                  setCustomUnit('L')
+                }
               }
             }}
             placeholder="Buscar producto..."
@@ -247,7 +269,7 @@ export default function Botellas() {
             <p className="text-[11px] text-zinc-600 -mt-0.5 mb-1">
               Podés abrir cualquier tamaño — los tragos funcionan igual, consumen los oz que necesitan
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {PRESETS.map((preset, i) => (
                 <button
                   key={i}
@@ -264,16 +286,34 @@ export default function Botellas() {
               ))}
             </div>
             {presetIdx === PRESETS.length - 1 && (
-              <input
-                type="number"
-                step="0.01"
-                min="0.1"
-                placeholder="Capacidad en oz"
-                value={customCap}
-                onChange={e => setCustomCap(e.target.value)}
-                className="mt-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
-                required
-              />
+              <>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="Cantidad"
+                    value={customCap}
+                    onChange={e => setCustomCap(e.target.value)}
+                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
+                    required
+                  />
+                  <select
+                    value={customUnit}
+                    onChange={e => setCustomUnit(e.target.value as 'ml' | 'L' | 'oz')}
+                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand-500"
+                  >
+                    <option value="ml">ml</option>
+                    <option value="L">L</option>
+                    <option value="oz">oz</option>
+                  </select>
+                </div>
+                {capacidad > 0 && customUnit !== 'oz' && (
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    Equivale a <span className="font-semibold text-zinc-300">{capacidad.toFixed(2)} oz</span>
+                  </p>
+                )}
+              </>
             )}
           </div>
 
