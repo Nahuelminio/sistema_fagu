@@ -670,6 +670,36 @@ export async function anularVenta(req: AuthRequest, res: Response): Promise<void
   })
 }
 
+/** Reintenta emitir la FACTURA en ARCA para una venta sin CAE.
+ *  Útil si ARCA falló o tuvo timeout al crear la venta. Admin-only. */
+export async function reintentarFactura(req: AuthRequest, res: Response): Promise<void> {
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) { res.status(400).json({ error: 'ID inválido' }); return }
+
+  const sale = await prisma.sale.findUnique({ where: { id } })
+  if (!sale) { res.status(404).json({ error: 'Venta no encontrada' }); return }
+  if (sale.anulada) { res.status(400).json({ error: 'La venta está anulada' }); return }
+  if (sale.cae) { res.status(400).json({ error: 'La venta ya tiene CAE emitido' }); return }
+
+  try {
+    await processFacturaYEmail({
+      saleId:        sale.id,
+      total:         Number(sale.total),
+      paymentMethod: sale.paymentMethod,
+      clienteId:     sale.clienteId,
+      debeFacturar:  true,
+    })
+    const actualizada = await prisma.sale.findUnique({ where: { id }, select: { cae: true, nroFactura: true, puntoVenta: true } })
+    if (!actualizada?.cae) {
+      res.status(500).json({ error: 'ARCA no respondió con CAE — revisá los logs del servidor' })
+      return
+    }
+    res.json({ ok: true, cae: actualizada.cae, nroFactura: actualizada.nroFactura, puntoVenta: actualizada.puntoVenta })
+  } catch (err: any) {
+    res.status(500).json({ error: 'ARCA rechazó la factura', detalle: err?.message ?? String(err) })
+  }
+}
+
 /** Reintenta emitir la NC en ARCA para una venta anulada que tiene CAE pero no ncCae.
  *  Útil si la NC falló al anular (timeout de AFIP, etc.). Admin-only. */
 export async function reintentarNotaCredito(req: AuthRequest, res: Response): Promise<void> {

@@ -106,6 +106,30 @@ function VentaCard({ venta, onAnular }: { venta: Sale; onAnular: () => void }) {
             ))}
           </div>
 
+          {/* Aviso: venta que debería estar facturada pero no tiene CAE (ARCA falló) */}
+          {!hasFactura && !isAnulada && venta.paymentMethod !== 'EFECTIVO' && (
+            <div className="mt-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-yellow-400">⚠ Factura pendiente</p>
+                <p className="text-xs text-zinc-400 mt-0.5">ARCA no respondió al cobrar. Reintentá para emitir el CAE.</p>
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    const r = await api.post<{ ok: boolean; cae: string; nroFactura: number; puntoVenta: number }>(`/ventas/${venta.id}/retry-factura`)
+                    showToast(`Factura emitida: ${String(r.data.puntoVenta).padStart(4, '0')}-${String(r.data.nroFactura).padStart(8, '0')}`)
+                    onAnular()
+                  } catch (err: any) {
+                    showToast(err?.response?.data?.error ?? err?.response?.data?.detalle ?? 'Error', 'error')
+                  }
+                }}
+                className="rounded-lg bg-yellow-500/20 border border-yellow-500/30 px-3 py-1.5 text-xs font-semibold text-yellow-300 hover:bg-yellow-500/30 transition whitespace-nowrap"
+              >
+                Reintentar factura
+              </button>
+            </div>
+          )}
+
           {/* Datos de factura */}
           {hasFactura && (
             <div className="mt-3 rounded-xl border border-brand-500/20 bg-brand-500/5 px-3 py-2 flex flex-col gap-0.5">
