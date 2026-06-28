@@ -343,7 +343,7 @@ export default function Ordenes() {
                   }))}
                 />
                 <input
-                  type="number" placeholder="Cant." min="0" step="0.001"
+                  type="number" placeholder="Cant." min="0" step="1"
                   value={item.quantity}
                   onChange={(e) => setOrderItems((prev) => prev.map((i, j) => j === idx ? { ...i, quantity: e.target.value } : i))}
                   className="rounded-xl border border-zinc-700 bg-zinc-800 px-2 py-2 text-xs text-zinc-100 outline-none w-full"

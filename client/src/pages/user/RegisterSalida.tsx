@@ -62,7 +62,7 @@ export default function RegisterSalida() {
             }))}
           />
 
-          <Input label="Cantidad" type="number" step="0.001" min="0.001" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
+          <Input label="Cantidad" type="number" step="1" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
           <Input label="Notas (opcional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
 
           {error && <p className="rounded-lg border border-red-800/50 bg-red-900/30 px-3 py-2 text-sm text-red-400">{error}</p>}
